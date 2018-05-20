@@ -10,8 +10,8 @@ GETTING STARTED
 
 The list of package requirements is provided in `extras/requirements.txt` in this repository. We recommend setting up a virtual environment and installing all the required packages via pip:
 ```
-virtualenv ~virtualenvs/test_safe/
-source virtualenvs/test_safe/bin/activate
+virtualenv ~/virtualenvs/safepy/
+source ~/virtualenvs/safepy/bin/activate
 pip install -r extras/requirements.txt
 ```
 After the installation is complete, we recommend running a "hello world" SAFE analysis using the Jupyter notebook at `examples/Usage_examples.ipynb`.
