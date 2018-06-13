@@ -14,7 +14,17 @@ virtualenv ~/virtualenvs/safepy/
 source ~/virtualenvs/safepy/bin/activate
 pip install -r extras/requirements.txt
 ```
-After the installation is complete, we recommend running a "hello world" SAFE analysis using the Jupyter notebook at `examples/Usage_examples.ipynb`.
+After the installation is complete, we recommend running a "hello world" SAFE analysis using the Jupyter notebook at `examples/Usage_examples.ipynb`. 
+
+To run the examples, several default datasets will be required. These datasets are stored separately at <https://github.com/baryshnikova-lab/safe-data>. We recommend cloning the safe-data repository and storing it locally (e.g., at <path_to_safe-data_folder). In addition, it is necessary to edit the SAFE settings file (at `safepy/safe_default.ini`) with the path to the safe-data folder.
+
+```
+vim safe_default.ini
+...
+[DEFAULT]
+safe_data = <path_to_safe-data_folder>
+...
+```
 
 HELP
 ====
