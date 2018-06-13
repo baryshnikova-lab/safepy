@@ -22,8 +22,6 @@ from functools import partial
 
 from safe_io import *
 from safe_colormaps import *
-# from safe.safe_io import *
-# from .safe_colormaps import *
 
 
 class SAFE:
