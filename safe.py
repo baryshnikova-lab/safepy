@@ -20,8 +20,8 @@ from matplotlib.colors import LinearSegmentedColormap
 from tqdm import tqdm
 from functools import partial
 
-from safe_io import *
-from safe_colormaps import *
+from .safe_io import *
+from .safe_colormaps import *
 
 
 class SAFE:
