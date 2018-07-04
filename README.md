@@ -3,21 +3,31 @@ INTRODUCTION
 
 SAFE (or Spatial Analysis of Functional Enrichment) is an automated network annotation algorithm. Given a biological network and a set of functional groups or quantitative features of interest, SAFE performs local enrichment analysis to determine which regions of the network are over-represented for each group or feature. SAFE visualizes the network and maps the detected enrichments onto the network.
 
-SAFE was originally implemented in MATLAB and stored at  <https://bitbucket.org/abarysh/safe/>. However, as of early 2017, the MATLAB implementation is only maintained for historical reasons. All new work related to SAFE has been moved to Python and this repository. 
+SAFE was originally implemented in MATLAB and stored at  <https://bitbucket.org/abarysh/safe/>. However, as of early 2017, the MATLAB implementation is only maintained for legacy purposes. All new work related to SAFE has been moved to Python and this repository. 
 
 GETTING STARTED
 ===============
 
-The list of package requirements is provided in `extras/requirements.txt` in this repository. We recommend setting up a virtual environment and installing all the required packages via pip:
+SAFE requires Python 3 and a set of packages listed in `extras/requirements.txt`. We recommend setting up a virtual environment and installing all the required packages via pip:
+
 ```
 cd safepy/
-virtualenv safepy
-source safepy/bin/activate
+virtualenv -p /usr/bin/python3.6 safepy_env
+source safepy_env/bin/activate
 pip install -r extras/requirements.txt
 ```
-After the installation is complete, we recommend running a "hello world" SAFE analysis using the Jupyter notebook at `examples/Usage_examples.ipynb`. 
 
-To run the examples, several default datasets will be required. These datasets are stored separately at <https://github.com/baryshnikova-lab/safe-data>. We recommend cloning the safe-data repository and storing it locally (e.g., at <path_to_safe-data_folder). In addition, it is necessary to edit the SAFE settings file (at `safepy/safe_default.ini`) with the path to the safe-data folder.
+After the installation is complete, it is useful to run a "hello world" SAFE analysis using the Jupyter notebook at `examples/Usage_examples.ipynb`. 
+
+To do so, from within the safepy_env environment install a new ipython kernel:
+
+```
+ipython kernel install --user --name=safepy
+```
+
+Then start jupyter, open `examples/Usage_examples.ipynb` and select the safepy kernel.
+
+Also, to run the examples, several common datasets will be required (e.g., the genetic interaction similarity network from Costanzo et al., 2016). These datasets are stored separately at <https://github.com/baryshnikova-lab/safe-data> (to avoid duplication with other SAFE-related repositories and packages). We recommend cloning the safe-data repository and storing it locally (e.g., at <path_to_safe-data_folder>). In addition, it is necessary to edit the SAFE settings file (at `safepy/safe_default.ini`) with the path to the `safe-data` folder.
 
 ```
 vim safe_default.ini
