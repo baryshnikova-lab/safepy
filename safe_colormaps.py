@@ -9,6 +9,7 @@ class MidpointRangeNormalize(colors.Normalize):
         colors.Normalize.__init__(self, vmin, vmax, clip)
 
     def __call__(self, value, clip=None):
-        x = [self.vmin, self.midrange[0], self.midrange[1], self.vmax]
-        y = [0, 0.5, 0.5, 1]
+        x = [self.vmin, self.midrange[0], self.midrange[1], self.midrange[2], self.vmax]
+        y = [0, 0.25, 0.5, 0.75, 1]
         return np.ma.masked_array(np.interp(value, x, y))
+

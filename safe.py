@@ -17,6 +17,7 @@ import numpy as np
 import multiprocessing as mp
 
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib import ticker
 from tqdm import tqdm
 from functools import partial
 
@@ -260,7 +261,7 @@ class SAFE:
 
         vmin = np.log10(1/self.num_permutations)
         vmax = -np.log10(1/self.num_permutations)
-        midrange = [np.log10(0.05), -np.log10(0.05)]
+        midrange = [np.log10(0.05), 0, -np.log10(0.05)]
 
         # Plot the attribute
         for idx_attribute, attribute in enumerate(attributes):
@@ -271,22 +272,22 @@ class SAFE:
             idx = np.argsort(np.abs(self.opacity[:, attribute]))
 
             # Colormap
-            colors_hex = ['82add6', '000000', 'facb66']
+            colors_hex = ['82add6', '000000', '000000', '000000', 'facb66']
             colors_rgb = [tuple(int(c[i:i+2], 16)/255 for i in (0, 2, 4)) for c in colors_hex]
 
-            cmap = LinearSegmentedColormap.from_list('test', colors_rgb)
+            cmap = LinearSegmentedColormap.from_list('my_cmap', colors_rgb)
 
             sc = ax.scatter(pos2[idx, 0], pos2[idx, 1], c=self.opacity[idx, attribute], vmin=vmin, vmax=vmax,
-                            s=60, cmap=cmap, norm=MidpointRangeNormalize(midrange=midrange),
+                            s=60, cmap=cmap, norm=MidpointRangeNormalize(midrange=midrange, vmin=vmin, vmax=vmax),
                             edgecolors=None)
 
             if show_colorbar:
                 cb = ax.figure.colorbar(sc, ax=ax,
                                         orientation='horizontal',
                                         pad=0.05,
-                                        shrink=0.5,
-                                        ticks=np.linspace(vmin, vmax, 3),
-                                        drawedges=True)
+                                        shrink=0.75,
+                                        ticks=[vmin, midrange[0], midrange[1], midrange[2], vmax],
+                                        drawedges=False)
 
                 # set colorbar label plus label color
                 cb.set_label('-log10 p-value', color='w')
@@ -300,6 +301,10 @@ class SAFE:
 
                 # set colorbar ticklabels
                 plt.setp(plt.getp(cb.ax.axes, 'xticklabels'), color='w')
+
+                cb.ax.set_xticklabels([format(r'$10^{%d}$' % vmin),
+                                       r'$10^{-2}$', '0', r'$10^2$',
+                                       format(r'$10^%d$' % vmax)])
 
             if show_raw_data:
                 s_min = 5
