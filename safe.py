@@ -290,7 +290,7 @@ class SAFE:
                                         drawedges=False)
 
                 # set colorbar label plus label color
-                cb.set_label('-log10 p-value', color='w')
+                cb.set_label('Enrichment p-value', color='w')
 
                 # set colorbar tick color
                 cb.ax.xaxis.set_tick_params(color='w')
