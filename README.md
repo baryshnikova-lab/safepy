@@ -12,7 +12,7 @@ SAFE requires Python 3 and a set of packages listed in `extras/requirements.txt`
 
 ```
 cd safepy/
-virtualenv -p /usr/bin/python3.6 safepy_env
+virtualenv -p python3.6 safepy_env
 source safepy_env/bin/activate
 pip install -r extras/requirements.txt
 ```
@@ -27,7 +27,11 @@ ipython kernel install --user --name=safepy
 
 Then start jupyter, open `examples/Usage_examples.ipynb` and select the safepy kernel.
 
-Also, to run the examples, several common datasets will be required (e.g., the genetic interaction similarity network from Costanzo et al., 2016). These datasets are stored separately at <https://github.com/baryshnikova-lab/safe-data> (to avoid duplication with other SAFE-related repositories and packages). We recommend cloning the safe-data repository and storing it locally (e.g., at <path_to_safe-data_folder>). In addition, it is necessary to edit the SAFE settings file (at `safepy/safe_default.ini`) with the path to the `safe-data` folder.
+```
+jupyter-notebook
+```
+
+To run the examples, several common datasets will be required (e.g., the genetic interaction similarity network from Costanzo et al., 2016). These datasets are stored separately at <https://github.com/baryshnikova-lab/safe-data> (to avoid duplication with other SAFE-related repositories and packages). We recommend cloning the safe-data repository and storing it locally (e.g., at <path_to_safe-data_folder>). In addition, it is necessary to edit the SAFE settings file (at `safepy/safe_default.ini`) with the path to the `safe-data` folder.
 
 ```
 vim safe_default.ini
