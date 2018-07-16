@@ -20,6 +20,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib import ticker
 from tqdm import tqdm
 from functools import partial
+from scipy.stats import hypergeom
 
 from .safe_io import *
 from .safe_colormaps import *
@@ -38,11 +39,12 @@ class SAFE:
         self.path_to_attribute_file = None
 
         self.graph = None
-        self.node_key_attribute = 'label_orf'
+        self.node_key_attribute = 'key'
 
         self.attributes = None
         self.node2attribute = None
         self.num_nodes_per_attribute = None
+        self.attribute_sign = None
 
         self.node_distance_metric = None
         self.neighborhood_radius_type = None
@@ -97,11 +99,13 @@ class SAFE:
         self.path_to_network_file = os.path.join(path_to_safe_data, path_to_network_file)
         self.path_to_attribute_file = os.path.join(path_to_safe_data, path_to_attribute_file)
 
+        self.attribute_sign = config.get('Input files', 'annotationsign') # falls back on default if empty
+
         if 'Analysis parameters' not in config:
             config['Analysis parameters'] = {}
         self.node_distance_metric = config.get('Analysis parameters', 'nodeDistanceType')
         self.neighborhood_radius_type = config.get('Analysis parameters', 'neighborhoodRadiusType')
-        self.neighborhood_radius = config.get('Analysis parameters', 'neighborhoodRadius')
+        self.neighborhood_radius = float(config.get('Analysis parameters', 'neighborhoodRadius'))
 
     def load_network(self, **kwargs):
 
@@ -120,6 +124,9 @@ class SAFE:
             self.graph = load_network_from_mat(self.path_to_network_file, verbose=self.verbose)
         elif file_extension == '.gpickle':
             self.graph = load_network_from_gpickle(self.path_to_network_file, verbose=self.verbose)
+            self.node_key_attribute = 'label_orf'
+        elif file_extension == '.txt':
+            self.graph = load_network_from_txt(self.path_to_network_file, verbose=self.verbose)
 
         # Setting the node key for mapping attributes
         key_list = nx.get_node_attributes(self.graph, self.node_key_attribute)
@@ -127,11 +134,11 @@ class SAFE:
 
     def load_attributes(self, **kwargs):
 
-        # Overwriting the global settings, if required
+        # Overwrite the global settings, if required
         if 'attribute_file' in kwargs:
             self.path_to_attribute_file = kwargs['attribute_file']
 
-        node_label_order = list(nx.get_node_attributes(self.graph, 'key').values())
+        node_label_order = list(nx.get_node_attributes(self.graph, self.node_key_attribute).values())
 
         if self.verbose:
             print('Loading attributes from %s' % self.path_to_attribute_file)
@@ -145,15 +152,23 @@ class SAFE:
         if 'node_distance_metric' in kwargs:
             self.node_distance_metric = kwargs['node_distance_metric']
 
+        if 'neighborhood_radius_type' in kwargs:
+            self.neighborhood_radius_type = kwargs['neighborhood_radius_type']
+
+        if 'neighborhood_radius' in kwargs:
+            self.neighborhood_radius = kwargs['neighborhood_radius']
+
         all_shortest_paths = {}
 
         if self.node_distance_metric == 'shortpath_weighted_layout':
-            x = np.matrix(self.graph.nodes.data('x'))[:, 1]
-            neighborhood_radius = 10 * (np.max(x) - np.min(x)) / 100
+            # x = np.matrix(self.graph.nodes.data('x'))[:, 1]
+            x = list(dict(self.graph.nodes.data('x')).values())
+            nr = self.neighborhood_radius * (np.max(x) - np.min(x))
             all_shortest_paths = dict(nx.all_pairs_dijkstra_path_length(self.graph,
-                                                                        weight='length', cutoff=neighborhood_radius))
+                                                                        weight='length', cutoff=nr))
         elif self.node_distance_metric == 'shortpath':
-            all_shortest_paths = dict(nx.all_pairs_dijkstra_path_length(self.graph, cutoff=1))
+            nr = self.neighborhood_radius
+            all_shortest_paths = dict(nx.all_pairs_dijkstra_path_length(self.graph, cutoff=nr))
 
         neighbors = [(s, t) for s in all_shortest_paths for t in all_shortest_paths[s].keys()]
 
@@ -164,9 +179,32 @@ class SAFE:
         # Set diagonal to zero (a node is not part of its own neighborhood)
         # np.fill_diagonal(neighborhoods, 0)
 
+        # Calculate the average neighborhood size
+        num_neighbors = np.sum(neighborhoods, axis=1)
+
+        if self.verbose:
+            print('Node distance metric: %s' % self.node_distance_metric)
+            print('Neighborhood definition: %.2f x %s' % (self.neighborhood_radius, self.neighborhood_radius_type))
+            print('Number of nodes per neighborhood (mean +/- std): %.2f +/- %.2f' % (np.mean(num_neighbors), np.std(num_neighbors)))
+
         self.neighborhoods = neighborhoods
 
     def compute_pvalues(self, **kwargs):
+
+        # Determine if attributes are quantitative or binary
+        num_other_values = np.sum(~np.isnan(self.node2attribute) & ~np.isin(self.node2attribute, [0,1]))
+
+        if num_other_values == 0:
+            print('The node attribute values appear to be binary. '
+                  'Using the hypergeometric test to calculate enrichment...')
+            self.compute_pvalues_by_hypergeom(**kwargs)
+
+        else:
+            print('The node attribute values appear to be quantitative. '
+                  'Using randomization to calculate enrichment...')
+            self.compute_pvalues_by_randomization(**kwargs)
+
+    def compute_pvalues_by_randomization(self, **kwargs):
 
         def compute_neighborhood_score(neighborhood2node, node2attribute):
 
@@ -198,7 +236,7 @@ class SAFE:
 
         N_in_neighborhood_in_group = compute_neighborhood_score(self.neighborhoods, self.node2attribute)
 
-        n2a = self.node2attribute.copy()
+        n2a = self.node2attribute
         indx_vals = np.nonzero(np.sum(~np.isnan(n2a), axis=1))[0]
 
         counts_neg = np.zeros(N_in_neighborhood_in_group.shape)
@@ -211,8 +249,8 @@ class SAFE:
             N_in_neighborhood_in_group_perm = compute_neighborhood_score(self.neighborhoods, n2a)
 
             with np.errstate(invalid='ignore', divide='ignore'):
-                counts_neg = np.add(counts_neg, N_in_neighborhood_in_group_perm <= N_in_neighborhood_in_group)
-                counts_pos = np.add(counts_pos, N_in_neighborhood_in_group_perm >= N_in_neighborhood_in_group)
+                counts_neg = np.add(counts_neg, N_in_neighborhood_in_group_perm < N_in_neighborhood_in_group)
+                counts_pos = np.add(counts_pos, N_in_neighborhood_in_group_perm > N_in_neighborhood_in_group)
 
         self.pvalues_neg = counts_neg / self.num_permutations
         self.pvalues_pos = counts_pos / self.num_permutations
@@ -221,10 +259,34 @@ class SAFE:
         opacity_pos = -np.log10(np.where(self.pvalues_pos > 0, self.pvalues_pos, 1/self.num_permutations))
         opacity_neg = -np.log10(np.where(self.pvalues_neg > 0, self.pvalues_neg, 1/self.num_permutations))
 
-        self.opacity = opacity_pos - opacity_neg
+        if self.attribute_sign == 'highest':
+            self.opacity = opacity_pos
+        elif self.attribute_sign == 'lowest':
+            self.opacity = opacity_neg
+        elif self.attribute_sign == 'both':
+            self.opacity = opacity_pos - opacity_neg
+
+    def compute_pvalues_by_hypergeom(self, **kwargs):
+
+        N = np.zeros([self.graph.number_of_nodes(), len(self.attributes)]) + self.graph.number_of_nodes()
+        N_in_group = np.tile(np.nansum(self.node2attribute, axis=0), (self.graph.number_of_nodes(), 1))
+
+        N_in_neighborhood = np.tile(np.sum(self.neighborhoods, axis=0)[:, np.newaxis], (1, len(self.attributes)))
+
+        N_in_neighborhood_in_group = np.dot(self.neighborhoods,
+                                            np.where(~np.isnan(self.node2attribute), self.node2attribute, 0))
+
+        self.pvalues_pos = hypergeom.sf(N_in_neighborhood_in_group - 1, N, N_in_group, N_in_neighborhood)
+        opacity_pos = -np.log10(self.pvalues_pos)
+
+        self.opacity = opacity_pos
+
+    def plot_network(self):
+
+        plot_network(self.graph)
 
     def plot_sample_attributes(self, attributes=1, significant_attributes_only=False,
-                               show_costanzo2016=True, show_costanzo2016_legend=True,
+                               show_costanzo2016=False, show_costanzo2016_legend=True,
                                show_raw_data=False, show_significant_nodes=False,
                                show_colorbar=False,
                                labels=[],
@@ -248,25 +310,27 @@ class SAFE:
         pos2 = np.vstack(list(pos.values()))
 
         # Figure parameters
-        nrows = int(np.ceil(len(attributes)/2))
-        ncols = np.min([len(attributes), 2])
+        nrows = int(np.ceil((len(attributes)+1)/2))
+        ncols = np.min([len(attributes)+1, 2])
         figsize = (10*ncols, 10*nrows)
 
-        fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, facecolor='black')
-
-        if len(attributes) == 1:
-            axes = np.array(axes)
-
+        [fig, axes] = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, facecolor='black')
         axes = axes.ravel()
 
-        vmin = np.log10(1/self.num_permutations)
-        vmax = -np.log10(1/self.num_permutations)
         midrange = [np.log10(0.05), 0, -np.log10(0.05)]
+
+        # First, plot the network
+        ax = axes[0]
+        ax = plot_network(self.graph, ax=ax)
 
         # Plot the attribute
         for idx_attribute, attribute in enumerate(attributes):
 
-            ax = axes[idx_attribute]
+            ax = axes[idx_attribute+1]
+
+            # Dynamically determine the min & max of the colorscale
+            vmin = np.nanmin([np.log10(1 / self.num_permutations), np.nanmin(-np.abs(self.opacity[:, attribute]))])
+            vmax = np.nanmax([-np.log10(1 / self.num_permutations), np.nanmax(np.abs(self.opacity[:, attribute]))])
 
             # Determine the order of points, such that the brightest ones are on top
             idx = np.argsort(np.abs(self.opacity[:, attribute]))
@@ -304,7 +368,7 @@ class SAFE:
 
                 cb.ax.set_xticklabels([format(r'$10^{%d}$' % vmin),
                                        r'$10^{-2}$', '0', r'$10^2$',
-                                       format(r'$10^%d$' % vmax)])
+                                       format(r'$10^{%d}$' % vmax)])
 
             if show_raw_data:
                 s_min = 5
@@ -356,6 +420,8 @@ class SAFE:
             ax.set_title(title, color='#ffffff')
 
             plt.axis('off')
+
+        fig.set_facecolor("#000000")
 
         if save_fig:
             plt.savefig(save_fig, facecolor='k')
