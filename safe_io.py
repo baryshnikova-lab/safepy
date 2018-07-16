@@ -14,6 +14,61 @@ from scipy.stats import gaussian_kde
 from scipy.optimize import fmin
 
 
+def load_network_from_txt(filename, layout='spring_embedded', verbose=True):
+
+    filename = re.sub('~', expanduser('~'), filename)
+    data = pd.read_table(filename, sep='\t', header=None)
+
+    if data.shape[1] == 3:
+        edges = list(data[[0, 1]].itertuples(index=False))
+        # nodes = data[[0]].append(data[[1]].rename(columns={1: 0})).drop_duplicates()
+
+        G = nx.Graph(edges)
+
+        for n in G:
+            G.nodes[n]['label'] = n
+            G.nodes[n]['key'] = n
+
+    elif data.shape[1] == 5:
+        data = data.rename(columns={0: 'node_label1', 1: 'node_key1', 2: 'node_label2', 3: 'node_key2', 4: 'edge_weight'})
+
+        # Merge nodes1 and nodes2 and drop duplicates
+        nodes = data[['node_label1', 'node_key1']]\
+            .append(data[['node_label2', 'node_key2']].rename(columns={'node_label2': 'node_label1', 'node_key2': 'node_key1'}))\
+            .drop_duplicates()
+
+        # Re-number the node index
+        nodes = nodes.reset_index(drop=True)
+
+        # Add the node index to network data
+        nodes = nodes.reset_index().set_index('node_label1')
+        data['node_index1'] = nodes.loc[data['node_label1'], 'index'].values
+        data['node_index2'] = nodes.loc[data['node_label2'], 'index'].values
+
+        # Create the graph
+        G = nx.Graph()
+
+        # Add the nodes & their attributes
+        nodes = nodes.reset_index().set_index('index')
+        G.add_nodes_from(nodes.index.values)
+
+        for n in G:
+            G.nodes[n]['label'] = nodes.loc[n, 'node_label1']
+            G.nodes[n]['key'] = nodes.loc[n, 'node_key1']
+
+        # Add the edges between the nodes
+        edges = [tuple(x) for x in data[['node_index1', 'node_index2']].values]
+        G.add_edges_from(edges)
+
+    else:
+        print('Unknown file format. 3 or 5 columns expected.')
+
+    G = apply_network_layout(G, layout=layout)
+    G = calculate_edge_lengths(G, verbose=verbose)
+
+    return G
+
+
 def load_network_from_gpickle(filename, verbose=True):
 
     filename = re.sub('~', expanduser('~'), filename)
@@ -34,14 +89,44 @@ def load_network_from_mat(filename, verbose=True):
 
     for n in G:
         G.nodes[n]['label'] = mat['layout']['label'][n]
-        G.nodes[n]['label_orf'] = mat['layout']['label_orf'][n]
+        G.nodes[n]['key'] = mat['layout']['label_orf'][n]
         G.nodes[n]['x'] = mat['layout']['x'][n]
         G.nodes[n]['y'] = mat['layout']['y'][n]
+
+    G = calculate_edge_lengths(G, verbose=verbose)
+
+    return G
+
+
+def apply_network_layout(G, layout='kamada_kawai', verbose=True):
+
+    if layout == 'kamada_kawai':
+
+        if verbose:
+            print('Applying the Kamada-Kawai network layout... (may take several minutes)')
+
+        pos = nx.kamada_kawai_layout(G)
+
+    elif layout == 'spring_embedded':
+
+        if verbose:
+            print('Applying the spring-embedded network layout... (may take several minutes)')
+
+        pos = nx.spring_layout(G, k=0.2, iterations=100)
+
+    for n in G:
+        G.nodes[n]['x'] = pos[n][0]
+        G.nodes[n]['y'] = pos[n][1]
+
+    return G
+
+
+def calculate_edge_lengths(G, verbose=True):
 
     # Calculate the lengths of the edges
 
     if verbose:
-        print('Calculating the edge lengths...')
+        print('Calculating edge lengths...')
 
     x = np.matrix(G.nodes.data('x'))[:, 1]
     y = np.matrix(G.nodes.data('y'))[:, 1]
@@ -82,7 +167,7 @@ def load_attributes(attribute_file='', node_label_order=[], verbose=True):
             data = {'attribute_id': mat['go']['term_ids'], 'attribute_name': mat['go']['term_names']}
             attributes = pd.DataFrame(data=data)
 
-        elif file_extension == '.txt':
+        elif (file_extension == '.txt') or (file_extension == '.gz'):
 
             node2attribute = pd.read_table(file_name)
             node2attribute.set_index(node2attribute.columns[0], drop=True, inplace=True)
@@ -112,7 +197,7 @@ def load_attributes(attribute_file='', node_label_order=[], verbose=True):
     return attributes, node2attribute
 
 
-def plot_network(G):
+def plot_network(G, ax=None):
 
     x = dict(G.nodes.data('x'))
     y = dict(G.nodes.data('y'))
@@ -122,11 +207,29 @@ def plot_network(G):
     for k in x:
         pos[k] = np.array([d[k] for d in ds])
 
-    fig = plt.figure(facecolor='black', edgecolor='white', figsize=(20, 10))
-    nx.draw(G, pos=pos, node_color='#ffffff', edge_color='#ffffff', node_size=10, width=1, alpha=0.2)
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(20, 10), facecolor='black', edgecolor='white')
+        fig.set_facecolor("#000000")
 
-    fig.set_facecolor("#000000")
-    plt.gca().set_aspect('equal')
+    nx.draw(G, ax=ax, pos=pos, node_color='#ffffff', edge_color='#ffffff', node_size=10, width=1, alpha=0.2)
+
+    ax.set_aspect('equal')
+    ax.set_facecolor('#000000')
+
+    ax.grid(False)
+    ax.invert_yaxis()
+    ax.margins(0.1, 0.1)
+
+    ax.set_title('Network', color='#ffffff')
+
+    plt.axis('off')
+
+    try:
+        fig.set_facecolor("#000000")
+    except NameError:
+        pass
+
+    return ax
 
 
 def plot_network_contour(graph, ax):
