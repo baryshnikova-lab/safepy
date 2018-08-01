@@ -12,6 +12,7 @@ from scipy.spatial import ConvexHull
 from scipy.spatial.distance import pdist, squareform
 from scipy.stats import gaussian_kde
 from scipy.optimize import fmin
+from collections import Counter
 
 
 def load_network_from_txt(filename, layout='spring_embedded', verbose=True):
@@ -20,48 +21,47 @@ def load_network_from_txt(filename, layout='spring_embedded', verbose=True):
     data = pd.read_table(filename, sep='\t', header=None)
 
     if data.shape[1] == 3:
-        edges = list(data[[0, 1]].itertuples(index=False))
-        # nodes = data[[0]].append(data[[1]].rename(columns={1: 0})).drop_duplicates()
 
-        G = nx.Graph(edges)
-
-        for n in G:
-            G.nodes[n]['label'] = n
-            G.nodes[n]['key'] = n
+        data = data.rename(columns={0: 'node_key1', 1: 'node_key2', 2: 'edge_weight'})
+        data['node_label1'] = data['node_key1']
+        data['node_label2'] = data['node_key2']
 
     elif data.shape[1] == 5:
-        data = data.rename(columns={0: 'node_label1', 1: 'node_key1', 2: 'node_label2', 3: 'node_key2', 4: 'edge_weight'})
 
-        # Merge nodes1 and nodes2 and drop duplicates
-        nodes = data[['node_label1', 'node_key1']]\
-            .append(data[['node_label2', 'node_key2']].rename(columns={'node_label2': 'node_label1', 'node_key2': 'node_key1'}))\
-            .drop_duplicates()
-
-        # Re-number the node index
-        nodes = nodes.reset_index(drop=True)
-
-        # Add the node index to network data
-        nodes = nodes.reset_index().set_index('node_label1')
-        data['node_index1'] = nodes.loc[data['node_label1'], 'index'].values
-        data['node_index2'] = nodes.loc[data['node_label2'], 'index'].values
-
-        # Create the graph
-        G = nx.Graph()
-
-        # Add the nodes & their attributes
-        nodes = nodes.reset_index().set_index('index')
-        G.add_nodes_from(nodes.index.values)
-
-        for n in G:
-            G.nodes[n]['label'] = nodes.loc[n, 'node_label1']
-            G.nodes[n]['key'] = nodes.loc[n, 'node_key1']
-
-        # Add the edges between the nodes
-        edges = [tuple(x) for x in data[['node_index1', 'node_index2']].values]
-        G.add_edges_from(edges)
+        data = data.rename(
+            columns={0: 'node_label1', 1: 'node_key1', 2: 'node_label2', 3: 'node_key2', 4: 'edge_weight'})
 
     else:
-        print('Unknown file format. 3 or 5 columns expected.')
+
+        raise ValueError('Unknown network file format. 3 or 5 columns are expected.')
+
+    # Merge nodes1 and nodes2 and drop duplicates
+    nodes = data[['node_label1', 'node_key1']] \
+        .append(data[['node_label2', 'node_key2']].rename(columns={'node_label2': 'node_label1', 'node_key2': 'node_key1'})) \
+        .drop_duplicates()
+
+    # Re-number the node index
+    nodes = nodes.reset_index(drop=True)
+
+    # Add the node index to network data
+    nodes = nodes.reset_index().set_index('node_label1')
+    data['node_index1'] = nodes.loc[data['node_label1'], 'index'].values
+    data['node_index2'] = nodes.loc[data['node_label2'], 'index'].values
+
+    # Create the graph
+    G = nx.Graph()
+
+    # Add the nodes & their attributes
+    nodes = nodes.reset_index().set_index('index')
+    G.add_nodes_from(nodes.index.values)
+
+    for n in G:
+        G.nodes[n]['label'] = nodes.loc[n, 'node_label1']
+        G.nodes[n]['key'] = nodes.loc[n, 'node_key1']
+
+    # Add the edges between the nodes
+    edges = [tuple(x) for x in data[['node_index1', 'node_index2']].values]
+    G.add_edges_from(edges)
 
     G = apply_network_layout(G, layout=layout)
     G = calculate_edge_lengths(G, verbose=verbose)
@@ -164,7 +164,7 @@ def load_attributes(attribute_file='', node_label_order=[], verbose=True):
                                           columns=mat['go']['term_ids'])
             node2attribute = node2attribute.apply(pd.to_numeric, downcast='unsigned')
 
-            data = {'attribute_id': mat['go']['term_ids'], 'attribute_name': mat['go']['term_names']}
+            data = {'id': mat['go']['term_ids'], 'name': mat['go']['term_names']}
             attributes = pd.DataFrame(data=data)
 
         elif (file_extension == '.txt') or (file_extension == '.gz'):
@@ -173,7 +173,7 @@ def load_attributes(attribute_file='', node_label_order=[], verbose=True):
             node2attribute.set_index(node2attribute.columns[0], drop=True, inplace=True)
             node2attribute = node2attribute.apply(pd.to_numeric, downcast='float', errors='coerce')
 
-            data = {'attribute_id': np.arange(len(node2attribute.columns)), 'attribute_name': node2attribute.columns}
+            data = {'id': np.arange(len(node2attribute.columns)), 'name': node2attribute.columns}
             attributes = pd.DataFrame(data=data)
 
             node2attribute.columns = np.arange(len(node2attribute.columns))
@@ -181,7 +181,7 @@ def load_attributes(attribute_file='', node_label_order=[], verbose=True):
     elif isinstance(attribute_file, pd.DataFrame):
 
         node2attribute = attribute_file
-        data = {'attribute_id': np.arange(len(node2attribute.columns)), 'attribute_name': node2attribute.columns}
+        data = {'id': np.arange(len(node2attribute.columns)), 'name': node2attribute.columns}
         attributes = pd.DataFrame(data=data)
 
     node2attribute = node2attribute.reindex(index=node_label_order, fill_value=np.nan)
@@ -373,6 +373,19 @@ def _todict(matobj):
         else:
             dict[strg] = elem
     return dict
+
+
+def chop_and_filter(s):
+    single_str = s.str.cat(sep=' ')
+    single_list = re.findall(r"[\w']+", single_str)
+
+    single_list_count = dict(Counter(single_list))
+    single_list_count = [k for k in sorted(single_list_count, key=single_list_count.get, reverse=True)]
+
+    to_exclude = ['of', 'a', 'the', 'an', ',', 'via', 'to', 'into', 'from']
+    single_list_words = [w for w in single_list_count if w not in to_exclude]
+
+    return ', '.join(single_list_words[:5])
 
 
 
