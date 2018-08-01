@@ -609,6 +609,7 @@ class SAFE:
                 s_min = 2
                 s_max = 45
                 n = self.node2attribute[:, attribute]
+                n = np.where(~np.isnan(n), n, 0)
 
                 n2a = np.abs(n)
                 a = (s_max-s_min)/(np.nanmax(n2a)-np.nanmin(n2a))
