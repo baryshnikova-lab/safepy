@@ -156,11 +156,10 @@ class SAFE:
 
         node_label_order = list(nx.get_node_attributes(self.graph, self.node_key_attribute).values())
 
-        if self.verbose:
+        if self.verbose and isinstance(self.path_to_attribute_file, str):
             print('Loading attributes from %s' % self.path_to_attribute_file)
 
         [self.attributes, self.node2attribute] = load_attributes(self.path_to_attribute_file, node_label_order)
-        # self.num_nodes_per_attribute = np.nansum(self.node2attribute, axis=0)
 
     def define_neighborhoods(self, **kwargs):
 
