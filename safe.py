@@ -148,6 +148,12 @@ class SAFE:
         key_list = nx.get_node_attributes(self.graph, self.node_key_attribute)
         nx.set_node_attributes(self.graph, key_list, name='key')
 
+        label_list = nx.get_node_attributes(self.graph, 'label')
+
+        self.nodes = pd.DataFrame(data={'id': list(label_list.keys()),
+                                        'key': list(key_list.values()),
+                                        'label': list(label_list.values())})
+
     def load_attributes(self, **kwargs):
 
         # Overwrite the global settings, if required
@@ -220,7 +226,10 @@ class SAFE:
         else:
             self.compute_pvalues_by_randomization(**kwargs)
 
-        self.nes_binary = (self.nes > -np.log10(self.enrichment_threshold)).astype(int)
+        idx = ~np.isnan(self.nes)
+        self.nes_binary = np.zeros(self.nes.shape)
+        self.nes_binary[idx] = self.nes[idx] > -np.log10(self.enrichment_threshold)
+
         self.attributes['num_neighborhoods_enriched'] = np.sum(self.nes_binary, axis=0)
 
     def compute_pvalues_by_randomization(self, **kwargs):
@@ -238,18 +247,18 @@ class SAFE:
                 NA = A
                 NB = np.where(~np.isnan(node2attribute), 1, 0)
 
-                AB = np.dot(A, B)
-                N = np.dot(NA, NB)
+                AB = np.dot(A, B)   # sum of attribute values in a neighborhood
+                N = np.dot(NA, NB)    # number of not-NaNs values in a neighborhood
 
-                M = AB / N
+                M = np.divide(AB, N)    # average attribute value in a neighborhood
 
-                A2B2 = np.dot(np.power(A, 2), np.power(B, 2))
-                MAB = M * AB
-                M2 = N * np.power(M, 2)
+                EXX = np.divide(np.dot(A, np.power(B, 2)), N)
+                EEX = np.power(M, 2)
 
-                std = np.sqrt(A2B2 - 2 * MAB + M2)
+                std = np.sqrt(EXX - EEX)    # standard deviation of attribute values in a neighborhood
 
-                neighborhood_score = AB / std
+                # neighborhood_score = AB / std
+                neighborhood_score = M / std
 
             return neighborhood_score
 
@@ -265,7 +274,7 @@ class SAFE:
         counts_pos = np.zeros(N_in_neighborhood_in_group.shape)
         for _ in tqdm(np.arange(self.num_permutations)):
 
-            # Permute the rows that have values
+            # Permute only the rows that have values
             n2a[indx_vals, :] = n2a[np.random.permutation(indx_vals), :]
 
             N_in_neighborhood_in_group_perm = compute_neighborhood_score(self.neighborhoods, n2a)
@@ -274,13 +283,17 @@ class SAFE:
                 counts_neg = np.add(counts_neg, N_in_neighborhood_in_group_perm < N_in_neighborhood_in_group)
                 counts_pos = np.add(counts_pos, N_in_neighborhood_in_group_perm > N_in_neighborhood_in_group)
 
+        idx = np.isnan(N_in_neighborhood_in_group)
+        counts_neg[idx] = np.nan
+        counts_pos[idx] = np.nan
+
         self.pvalues_neg = counts_neg / self.num_permutations
         self.pvalues_pos = counts_pos / self.num_permutations
 
         # Log-transform into neighborhood enrichment scores (NES)
         # Necessary conservative adjustment: when p-value = 0, set it to 1/num_permutations
-        nes_pos = -np.log10(np.where(self.pvalues_pos > 0, self.pvalues_pos, 1/self.num_permutations))
-        nes_neg = -np.log10(np.where(self.pvalues_neg > 0, self.pvalues_neg, 1/self.num_permutations))
+        nes_pos = -np.log10(np.where(self.pvalues_pos == 0, 1/self.num_permutations, self.pvalues_pos))
+        nes_neg = -np.log10(np.where(self.pvalues_neg == 0, 1/self.num_permutations, self.pvalues_neg))
 
         if self.attribute_sign == 'highest':
             self.nes = nes_pos
@@ -606,27 +619,37 @@ class SAFE:
                                        format(r'$10^{-%d}$' % vmax)])
 
             if show_raw_data:
-                s_min = 2
-                s_max = 45
-                n = self.node2attribute[:, attribute]
-                n = np.where(~np.isnan(n), n, 0)
 
-                n2a = np.abs(n)
-                a = (s_max-s_min)/(np.nanmax(n2a)-np.nanmin(n2a))
-                b = s_min - a*np.nanmin(n2a)
-                s = a * n2a + b
+                with np.errstate(divide='ignore', invalid='ignore'):
 
-                sgn = np.sign(n)
-                sgn = np.where(np.isnan(sgn), 0, sgn)
-                sgn = sgn.astype(int) + 1
+                    s_min = 5
+                    s_max = 55
+                    n = self.node2attribute[:, attribute]
 
-                alpha = np.abs(sgn-1).astype(float)
+                    n2a = np.abs(n)
+                    [n_min, n_max] = np.nanpercentile(np.unique(n2a), [5, 95])
+                    a = (s_max-s_min)/(n_max-n_min)
+                    b = s_min - a*n_min
+                    s = a * n2a + b
+                    s[s < s_min] = s_min
+                    s[s > s_max] = s_max
 
-                # Colormap
-                clrs_labels = ['negative', 'zero', 'positive']
-                clrs = [(1, 0, 0), (0, 0, 1), (0, 1, 0)]
+                    sgn = np.sign(n)
+                    sgn = np.where(np.isnan(sgn), 0, sgn)
+                    sgn = sgn.astype(int) + 1
 
-                ax.scatter(pos2[:, 0], pos2[:, 1], s=s, c=np.array(clrs)[sgn], marker='.')
+                    # Colormap
+                    clrs_labels = ['negative', 'zero', 'positive']
+                    clrs = [(1, 0, 0), (0, 0, 1), (0, 1, 0)]
+
+                    idx = self.node2attribute[:, attribute] < 0
+                    ax.scatter(pos2[idx, 0], pos2[idx, 1], s=s[idx], c='r', marker='.')
+
+                    idx = self.node2attribute[:, attribute] > 0
+                    ax.scatter(pos2[idx, 0], pos2[idx, 1], s=s[idx], c='g', marker='.')
+
+                    idx = self.node2attribute[:, attribute] == 0
+                    ax.scatter(pos2[idx, 0], pos2[idx, 1], s=s[idx], c='b', marker='.')
 
                 stp = (np.nanmax(pos2[:, 0])-np.nanmin(pos2[:, 0]))/2
                 for ix_c, c in enumerate(clrs):
@@ -636,13 +659,15 @@ class SAFE:
 
             if show_significant_nodes:
 
-                if self.attribute_sign in ['highest', 'both']:
-                    idx = self.nes[:, attribute] > -np.log10(self.enrichment_threshold)
-                    ax.scatter(pos2[idx, 0], pos2[idx, 1], c='g', marker='+')
+                with np.errstate(divide='ignore', invalid='ignore'):
 
-                if self.attribute_sign in ['lowest', 'both']:
-                    idx = self.nes[:, attribute] < np.log10(self.enrichment_threshold)
-                    ax.scatter(pos2[idx, 0], pos2[idx, 1], c='r', marker='+')
+                    if self.attribute_sign in ['highest', 'both']:
+                        idx = self.nes[:, attribute] > -np.log10(self.enrichment_threshold)
+                        ax.scatter(pos2[idx, 0], pos2[idx, 1], c='g', marker='+')
+
+                    if self.attribute_sign in ['lowest', 'both']:
+                        idx = self.nes[:, attribute] < np.log10(self.enrichment_threshold)
+                        ax.scatter(pos2[idx, 0], pos2[idx, 1], c='r', marker='+')
 
             if show_costanzo2016:
                 plot_costanzo2016_network_annotations(self.graph, ax, self.path_to_safe_data)
