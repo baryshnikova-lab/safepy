@@ -3,7 +3,10 @@ INTRODUCTION
 
 SAFE (or Spatial Analysis of Functional Enrichment) is an automated network annotation algorithm. Given a biological network and a set of functional groups or quantitative features of interest, SAFE performs local enrichment analysis to determine which regions of the network are over-represented for each group or feature. SAFE visualizes the network and maps the detected enrichments onto the network.
 
-SAFE was originally implemented in MATLAB and stored at  <https://bitbucket.org/abarysh/safe/>. However, as of early 2017, the MATLAB implementation is only maintained for legacy purposes. All new work related to SAFE has been moved to Python and this repository. 
+SAFE was originally implemented in MATLAB and stored at  <https://bitbucket.org/abarysh/safe/>. However, as of early 2017, the MATLAB implementation is only maintained for legacy purposes. New work related to SAFE is moving  to Python and this repository. 
+
+**WARNING. This is a development version. Please use caution.**
+
 
 GETTING STARTED
 ===============
