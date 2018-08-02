@@ -5,7 +5,7 @@ SAFE (or Spatial Analysis of Functional Enrichment) is an automated network anno
 
 SAFE was originally implemented in MATLAB and stored at  <https://bitbucket.org/abarysh/safe/>. However, as of early 2017, the MATLAB implementation is only maintained for legacy purposes. New work related to SAFE is moving  to Python and this repository. 
 
-**WARNING. This is a development version. Please use caution.**
+**WARNING. This package is still in development. Please use caution.**
 
 
 GETTING STARTED
