@@ -47,20 +47,23 @@ class SAFE:
         self.nodes = None
         self.node2attribute = None
         self.num_nodes_per_attribute = None
-        self.attribute_sign = None
+        self.attribute_sign = 'both'
 
-        self.node_distance_metric = None
+        self.node_distance_metric = 'shortpath_weighted_layout'
         self.neighborhood_radius_type = None
         self.neighborhood_radius = None
 
         self.num_permutations = 1000
-        self.enrichment_type = None
+        self.multiple_testing = True
+        self.neighborhood_score_type = 'sum'
+        self.enrichment_type = 'auto'
         self.enrichment_threshold = 0.05
         self.enrichment_max_log10 = 16
         self.attribute_enrichment_min_size = 10
 
         self.neighborhoods = None
 
+        self.ns = None
         self.pvalues_neg = None
         self.pvalues_pos = None
         self.nes = None
@@ -215,29 +218,34 @@ class SAFE:
         if 'how' in kwargs:
             self.enrichment_type = kwargs['how']
 
-        # Determine if attributes are quantitative or binary
+        if 'neighborhood_score_type' in kwargs:
+            self.neighborhood_score_type = kwargs['neighborhood_score_type']
+
+        if 'multiple_testing' in kwargs:
+            self.multiple_testing = kwargs['multiple_testing']
+
         num_other_values = np.sum(~np.isnan(self.node2attribute) & ~np.isin(self.node2attribute, [0, 1]))
 
-        if self.enrichment_type == 'randomization':
-            num_other_values = 100
-
-        if num_other_values == 0:
+        if (self.enrichment_type == 'hypergeometric') or ((self.enrichment_type == 'auto') and (num_other_values == 0)):
             self.compute_pvalues_by_hypergeom(**kwargs)
         else:
             self.compute_pvalues_by_randomization(**kwargs)
 
         idx = ~np.isnan(self.nes)
         self.nes_binary = np.zeros(self.nes.shape)
-        self.nes_binary[idx] = self.nes[idx] > -np.log10(self.enrichment_threshold)
+        self.nes_binary[idx] = np.abs(self.nes[idx]) > -np.log10(self.enrichment_threshold)
 
         self.attributes['num_neighborhoods_enriched'] = np.sum(self.nes_binary, axis=0)
 
     def compute_pvalues_by_randomization(self, **kwargs):
 
-        print('The node attribute values appear to be quantitative. '
-              'Using randomization to calculate enrichment...')
+        print('Using randomization to calculate enrichment...')
+        if kwargs:
+            print('Overwriting global settings:')
+            for k in kwargs:
+                print('\t%s=%s' % (k, str(kwargs[k])))
 
-        def compute_neighborhood_score(neighborhood2node, node2attribute):
+        def compute_neighborhood_score(neighborhood2node, node2attribute, neighborhood_score_type):
 
             with np.errstate(invalid='ignore', divide='ignore'):
 
@@ -248,26 +256,34 @@ class SAFE:
                 NB = np.where(~np.isnan(node2attribute), 1, 0)
 
                 AB = np.dot(A, B)   # sum of attribute values in a neighborhood
-                N = np.dot(NA, NB)    # number of not-NaNs values in a neighborhood
 
-                M = np.divide(AB, N)    # average attribute value in a neighborhood
+                neighborhood_score = AB
 
-                EXX = np.divide(np.dot(A, np.power(B, 2)), N)
-                EEX = np.power(M, 2)
+                if neighborhood_score_type == 'z-score':
+                    N = np.dot(NA, NB)    # number of not-NaNs values in a neighborhood
 
-                std = np.sqrt(EXX - EEX)    # standard deviation of attribute values in a neighborhood
+                    M = np.divide(AB, N)    # average attribute value in a neighborhood
 
-                # neighborhood_score = AB / std
-                neighborhood_score = M / std
+                    EXX = np.divide(np.dot(A, np.power(B, 2)), N)
+                    EEX = np.power(M, 2)
+
+                    std = np.sqrt(EXX - EEX)    # standard deviation of attribute values in a neighborhood
+
+                    neighborhood_score = np.divide(M, std)
+                    neighborhood_score[std == 0] = np.nan
+                    neighborhood_score[N < 3] = np.nan
 
             return neighborhood_score
 
         if 'num_permutations' in kwargs:
             self.num_permutations = kwargs['num_permutations']
 
-        N_in_neighborhood_in_group = compute_neighborhood_score(self.neighborhoods, self.node2attribute)
+        N_in_neighborhood_in_group = compute_neighborhood_score(self.neighborhoods,
+                                                                self.node2attribute,
+                                                                self.neighborhood_score_type)
+        self.ns = N_in_neighborhood_in_group
 
-        n2a = self.node2attribute
+        n2a = np.copy(self.node2attribute)
         indx_vals = np.nonzero(np.sum(~np.isnan(n2a), axis=1))[0]
 
         counts_neg = np.zeros(N_in_neighborhood_in_group.shape)
@@ -277,7 +293,9 @@ class SAFE:
             # Permute only the rows that have values
             n2a[indx_vals, :] = n2a[np.random.permutation(indx_vals), :]
 
-            N_in_neighborhood_in_group_perm = compute_neighborhood_score(self.neighborhoods, n2a)
+            N_in_neighborhood_in_group_perm = compute_neighborhood_score(self.neighborhoods,
+                                                                         n2a,
+                                                                         self.neighborhood_score_type)
 
             with np.errstate(invalid='ignore', divide='ignore'):
                 counts_neg = np.add(counts_neg, N_in_neighborhood_in_group_perm < N_in_neighborhood_in_group)
@@ -289,6 +307,14 @@ class SAFE:
 
         self.pvalues_neg = counts_neg / self.num_permutations
         self.pvalues_pos = counts_pos / self.num_permutations
+
+        # Correct for multiple testing
+        if self.multiple_testing:
+            self.pvalues_pos = self.pvalues_pos * self.attributes.shape[0]
+            self.pvalues_pos[self.pvalues_pos > 1] = 1
+
+            self.pvalues_neg = self.pvalues_neg * self.attributes.shape[0]
+            self.pvalues_neg[self.pvalues_neg > 1] = 1
 
         # Log-transform into neighborhood enrichment scores (NES)
         # Necessary conservative adjustment: when p-value = 0, set it to 1/num_permutations
@@ -302,10 +328,13 @@ class SAFE:
         elif self.attribute_sign == 'both':
             self.nes = nes_pos - nes_neg
 
-    def compute_pvalues_by_hypergeom(self, multiple_testing=True, **kwargs):
+    def compute_pvalues_by_hypergeom(self, **kwargs):
 
-        print('The node attribute values appear to be binary. '
-              'Using the hypergeometric test to calculate enrichment...')
+        print('Using the hypergeometric test to calculate enrichment...')
+        if kwargs:
+            print('Overwriting global settings:')
+            for k in kwargs:
+                print('\t%s=%s' % (k, str(kwargs[k])))
 
         N = np.zeros([self.graph.number_of_nodes(), len(self.attributes)]) + self.graph.number_of_nodes()
         N_in_group = np.tile(np.nansum(self.node2attribute, axis=0), (self.graph.number_of_nodes(), 1))
@@ -318,7 +347,7 @@ class SAFE:
         self.pvalues_pos = hypergeom.sf(N_in_neighborhood_in_group - 1, N, N_in_group, N_in_neighborhood)
 
         # Correct for multiple testing
-        if multiple_testing:
+        if self.multiple_testing:
             self.pvalues_pos = self.pvalues_pos * self.attributes.shape[0]
             self.pvalues_pos[self.pvalues_pos > 1] = 1
 
@@ -530,7 +559,7 @@ class SAFE:
     def plot_sample_attributes(self, attributes=1, top_attributes_only=False,
                                show_costanzo2016=False, show_costanzo2016_legend=True,
                                show_raw_data=False, show_significant_nodes=False,
-                               show_colorbar=False,
+                               show_colorbar=True,
                                labels=[],
                                save_fig=None, **kwargs):
 
@@ -539,7 +568,10 @@ class SAFE:
             all_attributes = all_attributes[self.attributes['top']]
 
         if isinstance(attributes, int):
-            attributes = np.random.choice(all_attributes, attributes, replace=False)
+            if attributes < len(all_attributes):
+                attributes = np.random.choice(all_attributes, attributes, replace=False)
+            else:
+                attributes = np.arange(len(all_attributes))
 
         x = dict(self.graph.nodes.data('x'))
         y = dict(self.graph.nodes.data('y'))
@@ -559,11 +591,11 @@ class SAFE:
         [fig, axes] = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, sharex=True, sharey=True)
         axes = axes.ravel()
 
-        midrange = [np.log10(0.05), 0, -np.log10(0.05)]
-
         # First, plot the network
         ax = axes[0]
         ax = plot_network(self.graph, ax=ax)
+
+        score = self.nes
 
         # Plot the attribute
         for idx_attribute, attribute in enumerate(attributes):
@@ -574,14 +606,18 @@ class SAFE:
             if 'vmin' in kwargs:
                 vmin = kwargs['vmin']
             else:
-                vmin = np.nanmin([np.log10(1 / self.num_permutations), np.nanmin(-np.abs(self.nes[:, attribute]))])
+                vmin = np.nanmin([np.log10(1 / self.num_permutations), np.nanmin(-np.abs(score[:, attribute]))])
             if 'vmax' in kwargs:
                 vmax = kwargs['vmax']
             else:
-                vmax = np.nanmax([-np.log10(1 / self.num_permutations), np.nanmax(np.abs(self.nes[:, attribute]))])
+                vmax = np.nanmax([-np.log10(1 / self.num_permutations), np.nanmax(np.abs(score[:, attribute]))])
+            if 'midrange' in kwargs:
+                midrange = kwargs['midrange']
+            else:
+                midrange = [np.log10(0.05), 0, -np.log10(0.05)]
 
             # Determine the order of points, such that the brightest ones are on top
-            idx = np.argsort(np.abs(self.nes[:, attribute]))
+            idx = np.argsort(np.abs(score[:, attribute]))
 
             # Colormap
             colors_hex = ['82add6', '000000', '000000', '000000', 'facb66']
@@ -589,23 +625,30 @@ class SAFE:
 
             cmap = LinearSegmentedColormap.from_list('my_cmap', colors_rgb)
 
-            sc = ax.scatter(pos2[idx, 0], pos2[idx, 1], c=self.nes[idx, attribute], vmin=vmin, vmax=vmax,
+            sc = ax.scatter(pos2[idx, 0], pos2[idx, 1], c=score[idx, attribute], vmin=vmin, vmax=vmax,
                             s=60, cmap=cmap, norm=MidpointRangeNormalize(midrange=midrange, vmin=vmin, vmax=vmax),
                             edgecolors=None)
 
             if show_colorbar:
-                cb = ax.figure.colorbar(sc, ax=ax,
-                                        orientation='horizontal',
-                                        pad=0.05,
-                                        shrink=0.75,
-                                        ticks=[vmin, midrange[0], midrange[1], midrange[2], vmax],
-                                        drawedges=False)
+
+                pos_ax = ax.get_position()
+                w = pos_ax.width*0.75
+                x0 = pos_ax.x0 + (pos_ax.width - w)/2
+                pos_cax = [x0, pos_ax.y0,  w, pos_ax.height*0.05]
+                cax = fig.add_axes(pos_cax)
+
+                cb = plt.colorbar(sc, cax=cax,
+                                  orientation='horizontal',
+                                  pad=0,
+                                  shrink=1,
+                                  ticks=[vmin, midrange[0], midrange[1], midrange[2], vmax],
+                                  drawedges=False)
 
                 # set colorbar label plus label color
-                cb.set_label('Enrichment p-value', color='w')
+                cb.set_label('Neighborhood enrichment p-value', color='w')
 
                 # set colorbar tick color
-                cb.ax.xaxis.set_tick_params(color='w')
+                cax.xaxis.set_tick_params(color='w')
 
                 # set colorbar edgecolor
                 cb.outline.set_edgecolor('white')
@@ -615,13 +658,18 @@ class SAFE:
                 plt.setp(plt.getp(cb.ax.axes, 'xticklabels'), color='w')
 
                 cb.ax.set_xticklabels([format(r'$10^{%d}$' % vmin),
-                                       r'$10^{-2}$', r'$1$', r'$10^{-2}$',
+                                       r'$10^{%d}$' % midrange[0], r'$1$', r'$10^{%d}$' % -midrange[2],
                                        format(r'$10^{-%d}$' % vmax)])
+
+                cax.text(cax.get_xlim()[0], 1, 'Lower than random', verticalalignment='bottom', fontdict={'color': 'w'})
+                cax.text(cax.get_xlim()[1], 1, 'Higher than random', verticalalignment='bottom',
+                         horizontalalignment='right', fontdict={'color': 'w'})
 
             if show_raw_data:
 
                 with np.errstate(divide='ignore', invalid='ignore'):
 
+                    s_zero = 5
                     s_min = 5
                     s_max = 55
                     n = self.node2attribute[:, attribute]
@@ -634,40 +682,56 @@ class SAFE:
                     s[s < s_min] = s_min
                     s[s > s_max] = s_max
 
-                    sgn = np.sign(n)
-                    sgn = np.where(np.isnan(sgn), 0, sgn)
-                    sgn = sgn.astype(int) + 1
-
                     # Colormap
-                    clrs_labels = ['negative', 'zero', 'positive']
-                    clrs = [(1, 0, 0), (0, 0, 1), (0, 1, 0)]
+                    neg_color = '#ff1d23'   # red
+                    pos_color = '#00ff44'   # green
+                    zero_color = '#ffffff'  # white
 
                     idx = self.node2attribute[:, attribute] < 0
-                    ax.scatter(pos2[idx, 0], pos2[idx, 1], s=s[idx], c='r', marker='.')
+                    sc1 = ax.scatter(pos2[idx, 0], pos2[idx, 1], s=s[idx], c=neg_color, marker='.')
 
                     idx = self.node2attribute[:, attribute] > 0
-                    ax.scatter(pos2[idx, 0], pos2[idx, 1], s=s[idx], c='g', marker='.')
+                    sc2 = ax.scatter(pos2[idx, 0], pos2[idx, 1], s=s[idx], c=pos_color, marker='.')
 
                     idx = self.node2attribute[:, attribute] == 0
-                    ax.scatter(pos2[idx, 0], pos2[idx, 1], s=s[idx], c='b', marker='.')
+                    sc3 = ax.scatter(pos2[idx, 0], pos2[idx, 1], s=s_zero, c=zero_color, marker='.')
 
-                stp = (np.nanmax(pos2[:, 0])-np.nanmin(pos2[:, 0]))/2
-                for ix_c, c in enumerate(clrs):
-                    txt_x = np.nanmin(pos2[:, 0]) + ix_c*stp
-                    txt_y = np.nanmax(pos2[:, 1]) + stp*0.1
-                    plt.text(txt_x, txt_y, clrs_labels[ix_c], fontdict={'color': c})
+                    # Legend
+                    l1 = plt.scatter([], [], s=s_max, c=neg_color, edgecolors='none')
+                    l2 = plt.scatter([], [], s=s_min, c=neg_color, edgecolors='none')
+                    l3 = plt.scatter([], [], s=s_zero, c=zero_color, edgecolors='none')
+                    l4 = plt.scatter([], [], s=s_min, c=pos_color, edgecolors='none')
+                    l5 = plt.scatter([], [], s=s_max, c=pos_color, edgecolors='none')
+
+                    labels = ['{0:.2f}'.format(n) for n in [-n_max, -n_min, 0, n_min, n_max]]
+
+                    leg = ax.legend([l1, l2, l3, l4, l5], labels, loc='upper left', bbox_to_anchor=(0, 1),
+                                    title='Raw data', scatterpoints=1, fancybox=False,
+                                    facecolor='#000000', edgecolor='#000000')
+
+                    for leg_txt in leg.get_texts():
+                        leg_txt.set_color('#ffffff')
+
+                    leg_title = leg.get_title()
+                    leg_title.set_color('#ffffff')
 
             if show_significant_nodes:
 
                 with np.errstate(divide='ignore', invalid='ignore'):
 
-                    if self.attribute_sign in ['highest', 'both']:
-                        idx = self.nes[:, attribute] > -np.log10(self.enrichment_threshold)
-                        ax.scatter(pos2[idx, 0], pos2[idx, 1], c='g', marker='+')
+                    idx = np.abs(self.nes_binary[:, attribute]) > 0
+                    sn1 = ax.scatter(pos2[idx, 0], pos2[idx, 1], c='w', marker='+')
 
-                    if self.attribute_sign in ['lowest', 'both']:
-                        idx = self.nes[:, attribute] < np.log10(self.enrichment_threshold)
-                        ax.scatter(pos2[idx, 0], pos2[idx, 1], c='r', marker='+')
+                # Legend
+                leg = ax.legend([sn1], ['p < 0.05'], loc='upper left', bbox_to_anchor=(0, 1),
+                                title='Significance', scatterpoints=1, fancybox=False,
+                                facecolor='#000000', edgecolor='#000000')
+
+                for leg_txt in leg.get_texts():
+                    leg_txt.set_color('#ffffff')
+
+                leg_title = leg.get_title()
+                leg_title.set_color('#ffffff')
 
             if show_costanzo2016:
                 plot_costanzo2016_network_annotations(self.graph, ax, self.path_to_safe_data)
@@ -689,7 +753,7 @@ class SAFE:
             title = '\n'.join(textwrap.wrap(title, width=30))
             ax.set_title(title, color='#ffffff')
 
-            plt.axis('off')
+            # plt.axis('off')
 
         fig.set_facecolor("#000000")
 
@@ -698,21 +762,22 @@ class SAFE:
             print('Output path: %s' % path_to_fig)
             plt.savefig(path_to_fig, facecolor='k')
 
-        return ax
-
     def print_output_files(self, **kwargs):
 
-        print('Output path: %s' % self.output_dir)
+        if 'output_dir' in kwargs:
+            self.output_dir = kwargs['output_dir']
 
         # Domain properties
         path_domains = os.path.join(self.output_dir, 'domain_properties_annotation.txt')
         if self.domains is not None:
             self.domains.drop(labels=[0], axis=0, inplace=True, errors='ignore')
             self.domains.to_csv(path_domains, sep='\t')
+            print(path_domains)
 
         # Attribute properties
         path_attributes = os.path.join(self.output_dir, 'attribute_properties_annotation.txt')
         self.attributes.to_csv(path_attributes, sep='\t')
+        print(path_attributes)
 
         # Node properties
         path_nodes = os.path.join(self.output_dir, 'node_properties_annotation.txt')
@@ -736,6 +801,7 @@ class SAFE:
             self.nodes.insert(loc=1, column='label', value=labels)
 
         self.nodes.to_csv(path_nodes, sep='\t')
+        print(path_nodes)
 
 
 # def run_safe_batch(sf, attribute_file):
