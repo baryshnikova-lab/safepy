@@ -184,11 +184,25 @@ def load_attributes(attribute_file='', node_label_order=[], verbose=True):
         data = {'id': np.arange(len(node2attribute.columns)), 'name': node2attribute.columns}
         attributes = pd.DataFrame(data=data)
 
+    node_label_in_file = node2attribute.index.values
+    node_label_not_mapped = [x for x in node_label_in_file if x not in node_label_order]
+
     node2attribute = node2attribute.reindex(index=node_label_order, fill_value=np.nan)
     node2attribute = node2attribute.as_matrix()
 
     if verbose:
-        print('Number of attributes: %d' % attributes.shape[0])
+        print('\nAttribute data provided: %d labels x %d attributes' % (len(node_label_in_file), attributes.shape[0]))
+
+        # Notification about labels **not** mapped onto the network
+        n = np.min([len(node_label_not_mapped), 3])
+        m = len(node_label_not_mapped) - n
+        if n > 0:
+            msg1 = ', '.join(node_label_not_mapped[:n])
+            msg2 = format(' and %d other labels in the attribute file were not found in the network.' % m)
+            print(msg1 + msg2)
+
+        n_nlm = len(node_label_in_file) - len(node_label_not_mapped)
+        print('\nAttribute data mapped onto the network: %d labels x %d attributes' % (n_nlm, attributes.shape[0]))
         print('Values: %d NaNs' % np.sum(np.isnan(node2attribute)))
         print('Values: %d zeros' % np.sum(node2attribute[~np.isnan(node2attribute)] == 0))
         print('Values: %d positives' % np.sum(node2attribute[~np.isnan(node2attribute)] > 0))
