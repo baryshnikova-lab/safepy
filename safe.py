@@ -24,8 +24,8 @@ from scipy.stats import hypergeom
 from itertools import compress
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 
-from .safe_io import *
-from .safe_colormaps import *
+from safe_io import *
+from safe_colormaps import *
 
 
 class SAFE:
@@ -168,7 +168,7 @@ class SAFE:
         if self.verbose and isinstance(self.path_to_attribute_file, str):
             print('Loading attributes from %s' % self.path_to_attribute_file)
 
-        [self.attributes, self.node2attribute] = load_attributes(self.path_to_attribute_file, node_label_order)
+        [self.attributes, _, self.node2attribute] = load_attributes(self.path_to_attribute_file, node_label_order)
 
     def define_neighborhoods(self, **kwargs):
 
@@ -753,7 +753,7 @@ class SAFE:
             title = '\n'.join(textwrap.wrap(title, width=30))
             ax.set_title(title, color='#ffffff')
 
-            # plt.axis('off')
+            ax.set_frame_on(False)
 
         fig.set_facecolor("#000000")
 
@@ -804,15 +804,16 @@ class SAFE:
         print(path_nodes)
 
 
-# def run_safe_batch(sf, attribute_file):
-#
-#     print('Loading attributes')
-#     sf.load_attributes(attribute_file=attribute_file)
-#
-#     print('Computing p-values')
-#     sf.compute_pvalues(num_permutations=1000)
-#
-#     return sf
+def run_safe_batch(attribute_file):
+
+    sf = SAFE()
+    sf.load_network()
+    sf.define_neighborhoods()
+
+    sf.load_attributes(attribute_file=attribute_file)
+    sf.compute_pvalues(num_permutations=10000)
+
+    return sf.nes
 
 
 if __name__ == '__main__':
@@ -825,41 +826,34 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    # Load the attribute file
+    [attributes, node_label_order, node2attribute] = load_attributes(args.path_to_attribute_file)
+
     nr_processes = mp.cpu_count()
+    nr_attributes = attributes.shape[0]
 
-    sf = SAFE()
-    sf.load_network()
-    sf.define_neighborhoods()
+    chunk_size = np.ceil(nr_attributes / nr_processes).astype(int)
+    chunks = np.array_split(np.arange(nr_attributes), nr_processes)
 
-    print('Loading attributes')
-    sf.load_attributes(attribute_file=args.path_to_attribute_file)
+    all_chunks = []
+    for chunk in chunks:
+        this_chunk = pd.DataFrame(data=node2attribute[:, chunk], index=node_label_order,
+                                  columns=attributes['name'].values[chunk])
+        all_chunks.append(this_chunk)
 
-    print('Computing p-values')
-    sf.compute_pvalues(num_permutations=1000)
+    pool = mp.Pool(processes=nr_processes)
 
-    # # Break the list into smaller chunks of 200 images and process the chunks sequentially
-    # chunk_size = int(np.ceil(attributes.shape[1]/nr_processes))
-    # chunks = np.arange(0, attributes.shape[1], chunk_size)
-    #
-    # print(chunk_size)
-    #
-    # all_data = pd.DataFrame()
-    #
-    # for ix_chunk in chunks:
-    #     ix_chunk_start = ix_chunk
-    #     ix_chunk_stop = np.min([ix_chunk + chunk_size - 1, attributes.shape[1]]) + 1
-    #
-    #     attributes_this = attributes.iloc[:, ix_chunk_start:ix_chunk_stop]
-    #
-    #     pool = mp.Pool(processes=nr_processes)
-    #     func = partial(run_safe_batch, sf)
-    #
-    #     for res in pool.map_async(func, attributes_this).get():
-    #         all_data = np.concatenate((all_data, res.es), axis=1)
-    #
-    #     print('Execution time: %.2f seconds' % (time.time() - start))
+    combined_nes = []
+
+    print('Running SAFE on %d chunks of size %d...' % (nr_processes, chunk_size))
+    for res in pool.map_async(run_safe_batch, all_chunks).get():
+        combined_nes.append(res)
+
+    all_nes = np.concatenate(combined_nes, axis=1)
 
     output_file = format('%s_safe_nes.p' % args.path_to_attribute_file)
 
+    print('Saving the results...')
     with open(output_file, 'wb') as handle:
-        pickle.dump(sf.nes, handle)
+        pickle.dump(all_nes, handle)
+

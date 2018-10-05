@@ -184,6 +184,9 @@ def load_attributes(attribute_file='', node_label_order=[], verbose=True):
         data = {'id': np.arange(len(node2attribute.columns)), 'name': node2attribute.columns}
         attributes = pd.DataFrame(data=data)
 
+    if not node_label_order:
+        node_label_order = node2attribute.index.values
+
     node_label_in_file = node2attribute.index.values
     node_label_not_mapped = [x for x in node_label_in_file if x not in node_label_order]
 
@@ -208,7 +211,7 @@ def load_attributes(attribute_file='', node_label_order=[], verbose=True):
         print('Values: %d positives' % np.sum(node2attribute[~np.isnan(node2attribute)] > 0))
         print('Values: %d negatives' % np.sum(node2attribute[~np.isnan(node2attribute)] < 0))
 
-    return attributes, node2attribute
+    return attributes, node_label_order, node2attribute
 
 
 def plot_network(G, ax=None):
