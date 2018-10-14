@@ -758,7 +758,9 @@ class SAFE:
         fig.set_facecolor("#000000")
 
         if save_fig:
-            path_to_fig = os.path.join(self.output_dir, save_fig)
+            path_to_fig = save_fig
+            if not os.path.isabs(path_to_fig):
+                path_to_fig = os.path.join(self.output_dir, save_fig)
             print('Output path: %s' % path_to_fig)
             plt.savefig(path_to_fig, facecolor='k')
 
