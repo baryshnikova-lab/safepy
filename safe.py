@@ -5,6 +5,8 @@ import textwrap
 import time
 import argparse
 import pickle
+import copy
+import time
 
 # Necessary check to make sure code runs both in Jupyter and in command line
 if 'matplotlib' not in sys.modules:
@@ -23,8 +25,10 @@ from functools import partial
 from scipy.stats import hypergeom
 from itertools import compress
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+from scipy.spatial.distance import pdist, squareform
 
 from safe_io import *
+from safe_extras import *
 from safe_colormaps import *
 
 
@@ -134,18 +138,24 @@ class SAFE:
         if 'node_key_attribute' in kwargs:
             self.node_key_attribute = kwargs['node_key_attribute']
 
-        [_, file_extension] = os.path.splitext(self.path_to_network_file)
+        if type(self.path_to_network_file) == nx.Graph:
 
-        if self.verbose:
-            print('Loading network from %s' % self.path_to_network_file)
+            self.graph = self.path_to_network_file
 
-        if file_extension == '.mat':
-            self.graph = load_network_from_mat(self.path_to_network_file, verbose=self.verbose)
-        elif file_extension == '.gpickle':
-            self.graph = load_network_from_gpickle(self.path_to_network_file, verbose=self.verbose)
-            self.node_key_attribute = 'label_orf'
-        elif file_extension == '.txt':
-            self.graph = load_network_from_txt(self.path_to_network_file, verbose=self.verbose)
+        else:
+
+            [_, file_extension] = os.path.splitext(self.path_to_network_file)
+
+            if self.verbose:
+                print('Loading network from %s' % self.path_to_network_file)
+
+            if file_extension == '.mat':
+                self.graph = load_network_from_mat(self.path_to_network_file, verbose=self.verbose)
+            elif file_extension == '.gpickle':
+                self.graph = load_network_from_gpickle(self.path_to_network_file, verbose=self.verbose)
+                self.node_key_attribute = 'label_orf'
+            elif file_extension == '.txt':
+                self.graph = load_network_from_txt(self.path_to_network_file, verbose=self.verbose)
 
         # Setting the node key for mapping attributes
         key_list = nx.get_node_attributes(self.graph, self.node_key_attribute)
@@ -183,22 +193,36 @@ class SAFE:
             self.neighborhood_radius = kwargs['neighborhood_radius']
 
         all_shortest_paths = {}
+        neighborhoods = np.zeros([self.graph.number_of_nodes(), self.graph.number_of_nodes()], dtype=int)
 
-        if self.node_distance_metric == 'shortpath_weighted_layout':
-            # x = np.matrix(self.graph.nodes.data('x'))[:, 1]
+        if self.node_distance_metric == 'euclidean':
             x = list(dict(self.graph.nodes.data('x')).values())
             nr = self.neighborhood_radius * (np.max(x) - np.min(x))
-            all_shortest_paths = dict(nx.all_pairs_dijkstra_path_length(self.graph,
-                                                                        weight='length', cutoff=nr))
-        elif self.node_distance_metric == 'shortpath':
-            nr = self.neighborhood_radius
-            all_shortest_paths = dict(nx.all_pairs_dijkstra_path_length(self.graph, cutoff=nr))
 
-        neighbors = [(s, t) for s in all_shortest_paths for t in all_shortest_paths[s].keys()]
+            x = np.matrix(self.graph.nodes.data('x'))[:, 1]
+            y = np.matrix(self.graph.nodes.data('y'))[:, 1]
 
-        neighborhoods = np.zeros([self.graph.number_of_nodes(), self.graph.number_of_nodes()], dtype=int)
-        for i in neighbors:
-            neighborhoods[i] = 1
+            node_coordinates = np.concatenate([x, y], axis=1)
+            node_distances = squareform(pdist(node_coordinates, 'euclidean'))
+
+            neighborhoods[node_distances < nr] = 1
+
+        else:
+
+            if self.node_distance_metric == 'shortpath_weighted_layout':
+                # x = np.matrix(self.graph.nodes.data('x'))[:, 1]
+                x = list(dict(self.graph.nodes.data('x')).values())
+                nr = self.neighborhood_radius * (np.max(x) - np.min(x))
+                all_shortest_paths = dict(nx.all_pairs_dijkstra_path_length(self.graph,
+                                                                            weight='length', cutoff=nr))
+            elif self.node_distance_metric == 'shortpath':
+                nr = self.neighborhood_radius
+                all_shortest_paths = dict(nx.all_pairs_dijkstra_path_length(self.graph, cutoff=nr))
+
+            neighbors = [(s, t) for s in all_shortest_paths for t in all_shortest_paths[s].keys()]
+
+            for i in neighbors:
+                neighborhoods[i] = 1
 
         # Set diagonal to zero (a node is not part of its own neighborhood)
         # np.fill_diagonal(neighborhoods, 0)
@@ -240,66 +264,52 @@ class SAFE:
     def compute_pvalues_by_randomization(self, **kwargs):
 
         print('Using randomization to calculate enrichment...')
+
         if kwargs:
-            print('Overwriting global settings:')
+            print('Current settings (possibly overwriting global ones):')
             for k in kwargs:
                 print('\t%s=%s' % (k, str(kwargs[k])))
 
-        def compute_neighborhood_score(neighborhood2node, node2attribute, neighborhood_score_type):
-
-            with np.errstate(invalid='ignore', divide='ignore'):
-
-                A = neighborhood2node
-                B = np.where(~np.isnan(node2attribute), node2attribute, 0)
-
-                NA = A
-                NB = np.where(~np.isnan(node2attribute), 1, 0)
-
-                AB = np.dot(A, B)   # sum of attribute values in a neighborhood
-
-                neighborhood_score = AB
-
-                if neighborhood_score_type == 'z-score':
-                    N = np.dot(NA, NB)    # number of not-NaNs values in a neighborhood
-
-                    M = np.divide(AB, N)    # average attribute value in a neighborhood
-
-                    EXX = np.divide(np.dot(A, np.power(B, 2)), N)
-                    EEX = np.power(M, 2)
-
-                    std = np.sqrt(EXX - EEX)    # standard deviation of attribute values in a neighborhood
-
-                    neighborhood_score = np.divide(M, std)
-                    neighborhood_score[std == 0] = np.nan
-                    neighborhood_score[N < 3] = np.nan
-
-            return neighborhood_score
+        # Pause for 1 sec to prevent the progress bar from showing up too early
+        time.sleep(1)
 
         if 'num_permutations' in kwargs:
             self.num_permutations = kwargs['num_permutations']
+
+        num_processes = 1
+        if 'processes' in kwargs:
+            num_processes = kwargs['processes']
 
         N_in_neighborhood_in_group = compute_neighborhood_score(self.neighborhoods,
                                                                 self.node2attribute,
                                                                 self.neighborhood_score_type)
         self.ns = N_in_neighborhood_in_group
 
-        n2a = np.copy(self.node2attribute)
-        indx_vals = np.nonzero(np.sum(~np.isnan(n2a), axis=1))[0]
+        if num_processes > 1:
 
-        counts_neg = np.zeros(N_in_neighborhood_in_group.shape)
-        counts_pos = np.zeros(N_in_neighborhood_in_group.shape)
-        for _ in tqdm(np.arange(self.num_permutations)):
+            num_permutations_x_process = np.ceil(self.num_permutations / num_processes).astype(int)
+            self.num_permutations = num_permutations_x_process * num_processes
 
-            # Permute only the rows that have values
-            n2a[indx_vals, :] = n2a[np.random.permutation(indx_vals), :]
+            arg_tuple = (self.neighborhoods, self.node2attribute,
+                         self.neighborhood_score_type, num_permutations_x_process)
+            list_for_parallelization = [arg_tuple] * num_processes
 
-            N_in_neighborhood_in_group_perm = compute_neighborhood_score(self.neighborhoods,
-                                                                         n2a,
-                                                                         self.neighborhood_score_type)
+            ctx = mp.get_context('spawn')
+            pl = ctx.Pool(processes=num_processes)
+            res = pl.map(run_permutations, list_for_parallelization)
+            pl.close()
+            pl.join()
 
-            with np.errstate(invalid='ignore', divide='ignore'):
-                counts_neg = np.add(counts_neg, N_in_neighborhood_in_group_perm < N_in_neighborhood_in_group)
-                counts_pos = np.add(counts_pos, N_in_neighborhood_in_group_perm > N_in_neighborhood_in_group)
+            [counts_neg_list, counts_pos_list] = map(list, zip(*res))
+
+            counts_neg = np.sum(np.stack(counts_neg_list, axis=2), axis=2)
+            counts_pos = np.sum(np.stack(counts_pos_list, axis=2), axis=2)
+
+        else:
+
+            arg_tuple = (self.neighborhoods, self.node2attribute,
+                         self.neighborhood_score_type, self.num_permutations)
+            [counts_neg, counts_pos] = run_permutations(arg_tuple)
 
         idx = np.isnan(N_in_neighborhood_in_group)
         counts_neg[idx] = np.nan
@@ -355,6 +365,9 @@ class SAFE:
         self.nes = -np.log10(self.pvalues_pos)
 
     def define_top_attributes(self, **kwargs):
+
+        if 'attribute_unimodality_metric' in kwargs:
+            self.attribute_unimodality_metric = kwargs['attribute_unimodality_metric']
 
         self.attributes['top'] = False
 
@@ -813,7 +826,7 @@ def run_safe_batch(attribute_file):
     sf.define_neighborhoods()
 
     sf.load_attributes(attribute_file=attribute_file)
-    sf.compute_pvalues(num_permutations=10000)
+    sf.compute_pvalues(num_permutations=1000)
 
     return sf.nes
 
