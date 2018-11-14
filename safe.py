@@ -58,7 +58,7 @@ class SAFE:
         self.neighborhood_radius = None
 
         self.num_permutations = 1000
-        self.multiple_testing = True
+        self.multiple_testing = False
         self.neighborhood_score_type = 'sum'
         self.enrichment_type = 'auto'
         self.enrichment_threshold = 0.05
@@ -320,11 +320,12 @@ class SAFE:
 
         # Correct for multiple testing
         if self.multiple_testing:
-            self.pvalues_pos = self.pvalues_pos * self.attributes.shape[0]
-            self.pvalues_pos[self.pvalues_pos > 1] = 1
-
-            self.pvalues_neg = self.pvalues_neg * self.attributes.shape[0]
-            self.pvalues_neg[self.pvalues_neg > 1] = 1
+            print('Correction for multiple testing is not active yet.')
+            # self.pvalues_pos = self.pvalues_pos * self.attributes.shape[0]
+            # self.pvalues_pos[self.pvalues_pos > 1] = 1
+            #
+            # self.pvalues_neg = self.pvalues_neg * self.attributes.shape[0]
+            # self.pvalues_neg[self.pvalues_neg > 1] = 1
 
         # Log-transform into neighborhood enrichment scores (NES)
         # Necessary conservative adjustment: when p-value = 0, set it to 1/num_permutations
