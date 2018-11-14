@@ -586,6 +586,8 @@ class SAFE:
                 attributes = np.random.choice(all_attributes, attributes, replace=False)
             else:
                 attributes = np.arange(len(all_attributes))
+        elif isinstance(attributes, str):
+            attributes = [list(self.attributes['name'].values).index(attributes)]
 
         x = dict(self.graph.nodes.data('x'))
         y = dict(self.graph.nodes.data('y'))
