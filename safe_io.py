@@ -321,7 +321,7 @@ def plot_costanzo2016_network_annotations(graph, ax, path_to_data):
         positions = np.vstack([X.ravel(), Y.ravel()])
         Z = np.reshape(kernel(positions).T, X.shape)
 
-        C = ax.contour(X, Y, Z, [1e-6], colors=[tuple(process_colors[n_process, :])], alpha=0.75)
+        C = ax.contour(X, Y, Z, [1e-6], colors=[tuple(process_colors[n_process, :])], alpha=1)
 
         C.levels = [n_process+1]
         plt.clabel(C, C.levels, inline=True, fmt='%d', fontsize=16)
