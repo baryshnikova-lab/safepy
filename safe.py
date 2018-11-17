@@ -26,6 +26,7 @@ from scipy.stats import hypergeom
 from itertools import compress
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from scipy.spatial.distance import pdist, squareform
+from statsmodels.stats.multitest import fdrcorrection
 
 from safe_io import *
 from safe_extras import *
@@ -320,12 +321,12 @@ class SAFE:
 
         # Correct for multiple testing
         if self.multiple_testing:
-            print('Correction for multiple testing is not active yet.')
-            # self.pvalues_pos = self.pvalues_pos * self.attributes.shape[0]
-            # self.pvalues_pos[self.pvalues_pos > 1] = 1
-            #
-            # self.pvalues_neg = self.pvalues_neg * self.attributes.shape[0]
-            # self.pvalues_neg[self.pvalues_neg > 1] = 1
+            print('Running FDR-adjustment of p-values...')
+            out = np.apply_along_axis(fdrcorrection, 1, self.pvalues_neg)
+            self.pvalues_neg = out[:, 1, :]
+
+            out = np.apply_along_axis(fdrcorrection, 1, self.pvalues_pos)
+            self.pvalues_pos = out[:, 1, :]
 
         # Log-transform into neighborhood enrichment scores (NES)
         # Necessary conservative adjustment: when p-value = 0, set it to 1/num_permutations
