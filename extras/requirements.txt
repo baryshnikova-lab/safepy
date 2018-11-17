@@ -6,5 +6,4 @@ numpy
 pandas
 matplotlib
 xlrd
-multiprocessing
 statsmodels
