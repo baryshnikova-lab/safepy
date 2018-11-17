@@ -57,8 +57,8 @@ def run_permutations(arg_tuple):
                                                                      neighborhood_score_type)
 
         with np.errstate(invalid='ignore', divide='ignore'):
-            counts_neg = np.add(counts_neg, N_in_neighborhood_in_group_perm < N_in_neighborhood_in_group)
-            counts_pos = np.add(counts_pos, N_in_neighborhood_in_group_perm > N_in_neighborhood_in_group)
+            counts_neg = np.add(counts_neg, N_in_neighborhood_in_group_perm <= N_in_neighborhood_in_group)
+            counts_pos = np.add(counts_pos, N_in_neighborhood_in_group_perm >= N_in_neighborhood_in_group)
 
     # print('Finished %d permutations.' % num_permutations)
 
