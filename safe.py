@@ -660,6 +660,9 @@ class SAFE:
                             s=60, cmap=cmap, norm=MidpointRangeNormalize(midrange=midrange, vmin=vmin, vmax=vmax),
                             edgecolors=None)
 
+            if not show_network:
+                ax.invert_yaxis()
+
             if show_colorbar:
 
                 pos_ax = ax.get_position()
