@@ -360,8 +360,9 @@ class SAFE:
 
         # Correct for multiple testing
         if self.multiple_testing:
-            self.pvalues_pos = self.pvalues_pos * self.attributes.shape[0]
-            self.pvalues_pos[self.pvalues_pos > 1] = 1
+            print('Running FDR-adjustment of p-values...')
+            out = np.apply_along_axis(fdrcorrection, 1, self.pvalues_pos)
+            self.pvalues_pos = out[:, 1, :]
 
         # Log-transform into neighborhood enrichment scores (NES)
         self.nes = -np.log10(self.pvalues_pos)
@@ -572,6 +573,7 @@ class SAFE:
         fig.set_facecolor("#000000")
 
     def plot_sample_attributes(self, attributes=1, top_attributes_only=False,
+                               show_network=True,
                                show_costanzo2016=False, show_costanzo2016_legend=True,
                                show_raw_data=False, show_significant_nodes=False,
                                show_colorbar=True,
@@ -589,6 +591,8 @@ class SAFE:
                 attributes = np.arange(len(all_attributes))
         elif isinstance(attributes, str):
             attributes = [list(self.attributes['name'].values).index(attributes)]
+        elif isinstance(attributes, list):
+            attributes = [list(self.attributes['name'].values).index(attribute) for attribute in attributes]
 
         x = dict(self.graph.nodes.data('x'))
         y = dict(self.graph.nodes.data('y'))
@@ -601,23 +605,33 @@ class SAFE:
         pos2 = np.vstack(list(pos.values()))
 
         # Figure parameters
-        nrows = int(np.ceil((len(attributes)+1)/2))
-        ncols = np.min([len(attributes)+1, 2])
+
+        nax = 0
+        if show_network:
+            nax = 1
+
+        nrows = int(np.ceil((len(attributes)+nax)/2))
+        ncols = np.min([len(attributes)+nax, 2])
         figsize = (10*ncols, 10*nrows)
 
         [fig, axes] = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, sharex=True, sharey=True)
-        axes = axes.ravel()
 
-        # First, plot the network
-        ax = axes[0]
-        ax = plot_network(self.graph, ax=ax)
+        if isinstance(axes, np.ndarray):
+            axes = axes.ravel()
+        else:
+            axes = np.array([axes])
+
+        # First, plot the network (if required)
+        if show_network:
+            ax = axes[0]
+            _ = plot_network(self.graph, ax=ax)
 
         score = self.nes
 
         # Plot the attribute
         for idx_attribute, attribute in enumerate(attributes):
 
-            ax = axes[idx_attribute+1]
+            ax = axes[idx_attribute+nax]
 
             # Dynamically determine the min & max of the colorscale
             if 'vmin' in kwargs:
