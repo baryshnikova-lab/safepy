@@ -146,7 +146,7 @@ def calculate_edge_lengths(G, verbose=True):
     return G
 
 
-def load_attributes(attribute_file='', node_label_order=[], verbose=True):
+def load_attributes(attribute_file='', node_label_order=[], fill_value=np.nan, verbose=True):
 
     node2attribute = pd.DataFrame()
     attributes = pd.DataFrame()
@@ -184,6 +184,9 @@ def load_attributes(attribute_file='', node_label_order=[], verbose=True):
         data = {'id': np.arange(len(node2attribute.columns)), 'name': node2attribute.columns}
         attributes = pd.DataFrame(data=data)
 
+    # Force all values to numeric
+    node2attribute = node2attribute.apply(pd.to_numeric, errors='coerce')
+
     if not node_label_order:
         node_label_order = node2attribute.index.values
 
@@ -196,7 +199,7 @@ def load_attributes(attribute_file='', node_label_order=[], verbose=True):
         print('\nDuplicate row labels detected. Their values will be averaged.')
         node2attribute = node2attribute.groupby(node2attribute.index, axis=0).mean()
 
-    node2attribute = node2attribute.reindex(index=node_label_order, fill_value=np.nan)
+    node2attribute = node2attribute.reindex(index=node_label_order, fill_value=fill_value)
     node2attribute = node2attribute.as_matrix()
 
     if verbose:
@@ -290,6 +293,8 @@ def plot_network_contour(graph, ax):
 
     circ = plt.Circle((xf, yf), radius=rf*1.01, color='w', linewidth=1, fill=False)
     ax.add_patch(circ)
+
+    return xf, yf, rf
 
 
 def plot_costanzo2016_network_annotations(graph, ax, path_to_data):
