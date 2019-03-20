@@ -6,6 +6,7 @@ import networkx as nx
 import numpy as np
 import scipy.io as spio
 import pandas as pd
+import zipfile
 
 from os.path import expanduser
 from scipy.spatial import ConvexHull
@@ -13,6 +14,7 @@ from scipy.spatial.distance import pdist, squareform
 from scipy.stats import gaussian_kde
 from scipy.optimize import fmin
 from collections import Counter
+from xml.dom import minidom
 
 
 def load_network_from_txt(filename, layout='spring_embedded', verbose=True):
@@ -92,6 +94,100 @@ def load_network_from_mat(filename, verbose=True):
         G.nodes[n]['key'] = mat['layout']['label_orf'][n]
         G.nodes[n]['x'] = mat['layout']['x'][n]
         G.nodes[n]['y'] = mat['layout']['y'][n]
+
+    G = calculate_edge_lengths(G, verbose=verbose)
+
+    return G
+
+
+def load_network_from_cys(filename, verbose=True):
+
+    filename = re.sub('~', expanduser('~'), filename)
+
+    if verbose:
+        print('Loading the cys file %s...' % filename)
+
+    # Unzip CYS file
+    zip_ref = zipfile.ZipFile(filename, 'r')
+    files = zip_ref.namelist()
+    zip_ref.extractall('./')
+    zip_ref.close()
+
+    # Get node positions (from the view)
+    viewfile = [f for f in files if '/views/' in f][0]
+
+    if verbose:
+        print('Loading the first view: %s' % viewfile)
+
+    mydoc = minidom.parse(viewfile)
+    nodes = mydoc.getElementsByTagName('node')
+
+    node_labels = dict()
+    node_xs = dict()
+    node_ys = dict()
+
+    for node in nodes:
+        node_id = int(node.attributes['cy:nodeId'].value)
+        node_labels[node_id] = node.attributes['label'].value
+        for child in node.childNodes:
+            if (child.nodeType == 1) and (child.tagName == 'graphics'):
+                node_xs[node_id] = float(child.attributes['x'].value)
+                node_ys[node_id] = float(child.attributes['y'].value)
+
+    # Get edges (from the network)
+    networkfile = [f for f in files if '/networks/' in f][0]
+
+    if verbose:
+        print('Loading the first network: %s' % networkfile)
+
+    mydoc = minidom.parse(networkfile)
+    edges = mydoc.getElementsByTagName('edge')
+
+    edge_list = []
+
+    for edge in edges:
+        edge_list.append((int(edge.attributes['source'].value), int(edge.attributes['target'].value)))
+
+    # Build the graph
+    G = nx.Graph()
+    G.add_edges_from(edge_list)
+
+    nodes_to_remove = []
+    for node in G.nodes:
+        if node in node_labels.keys():
+            G.nodes[node]['label'] = node_labels[node]
+            G.nodes[node]['x'] = node_xs[node]
+            G.nodes[node]['y'] = node_ys[node]
+        else:
+            nodes_to_remove.append(node)
+
+    for node in nodes_to_remove:
+        G.remove_node(node)
+
+    # Read the node attributes (from /tables/)
+    [file_name, file_extension] = os.path.splitext(os.path.basename(networkfile))
+    contains = ['/tables/', file_name, 'SHARED_ATTRS', 'node.cytable']
+    attributefile = [f for f in files if all(c in f for c in contains)]
+
+    attributes = pd.read_csv(attributefile[0], sep=',').reset_index()
+
+    cols = attributes.iloc[0, :].tolist()
+    attributes = pd.read_csv(attributefile[0], sep=',', skiprows=5, header=None)
+    attributes.columns = cols
+
+    attributes['SUID'] = attributes['SUID'].astype(int)
+
+    for ix_row, row in attributes.iterrows():
+        if row['SUID'] in G.nodes:
+            for c in cols[1:]:
+                G.nodes[row['SUID']][c] = row[c]
+
+    # Relabel the node ids to sequential numbers to make calculations faster
+    mapping = dict()
+    for ix_node, node in enumerate(G.nodes):
+        mapping[node] = ix_node
+
+    G = nx.relabel_nodes(G, mapping)
 
     G = calculate_edge_lengths(G, verbose=verbose)
 
