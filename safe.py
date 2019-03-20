@@ -157,6 +157,8 @@ class SAFE:
                 self.node_key_attribute = 'label_orf'
             elif file_extension == '.txt':
                 self.graph = load_network_from_txt(self.path_to_network_file, verbose=self.verbose)
+            elif file_extension == '.cys':
+                self.graph = load_network_from_cys(self.path_to_network_file, verbose=self.verbose)
 
         # Setting the node key for mapping attributes
         key_list = nx.get_node_attributes(self.graph, self.node_key_attribute)
@@ -179,7 +181,8 @@ class SAFE:
         if self.verbose and isinstance(self.path_to_attribute_file, str):
             print('Loading attributes from %s' % self.path_to_attribute_file)
 
-        [self.attributes, _, self.node2attribute] = load_attributes(self.path_to_attribute_file, node_label_order)
+        [self.attributes, _, self.node2attribute] = load_attributes(attribute_file=self.path_to_attribute_file,
+                                                                    node_label_order=node_label_order, **kwargs)
 
     def define_neighborhoods(self, **kwargs):
 
@@ -671,13 +674,11 @@ class SAFE:
                 pos_cax = [x0, pos_ax.y0,  w, pos_ax.height*0.05]
                 cax = fig.add_axes(pos_cax)
 
-                cb = plt.colorbar(sc, cax=cax,
-                                  orientation='horizontal',
-                                  pad=0,
-                                  shrink=1,
+                cb = plt.colorbar(sc, cax=cax, orientation='horizontal',
                                   ticks=[vmin, midrange[0], midrange[1], midrange[2], vmax],
                                   drawedges=False)
 
+                # pad = 0, shrink = 1,
                 # set colorbar label plus label color
                 cb.set_label('Neighborhood enrichment p-value', color='w')
 
@@ -709,12 +710,20 @@ class SAFE:
                     n = self.node2attribute[:, attribute]
 
                     n2a = np.abs(n)
-                    [n_min, n_max] = np.nanpercentile(np.unique(n2a), [5, 95])
-                    a = (s_max-s_min)/(n_max-n_min)
-                    b = s_min - a*n_min
-                    s = a * n2a + b
-                    s[s < s_min] = s_min
-                    s[s > s_max] = s_max
+                    if set(np.unique(n2a[~np.isnan(n2a)])).issubset([0, 1]):
+                        # The attribute is binary
+                        s = np.zeros(len(n2a))
+                        s[n2a > 0] = s_max
+                        n_min = 0
+                        n_max = 1
+                    else:
+                        # The attribute is quantitative
+                        [n_min, n_max] = np.nanpercentile(np.unique(n2a), [5, 95])
+                        a = (s_max-s_min)/(n_max-n_min)
+                        b = s_min - a*n_min
+                        s = a * n2a + b
+                        s[s < s_min] = s_min
+                        s[s > s_max] = s_max
 
                     # Colormap
                     neg_color = '#ff1d23'   # red
@@ -731,13 +740,13 @@ class SAFE:
                     sc3 = ax.scatter(pos2[idx, 0], pos2[idx, 1], s=s_zero, c=zero_color, marker='.')
 
                     # Legend
-                    l1 = plt.scatter([], [], s=s_max, c=neg_color, edgecolors='none')
-                    l2 = plt.scatter([], [], s=s_min, c=neg_color, edgecolors='none')
+                    l1 = plt.scatter([], [], s=s_max, c=pos_color, edgecolors='none')
+                    l2 = plt.scatter([], [], s=s_min, c=pos_color, edgecolors='none')
                     l3 = plt.scatter([], [], s=s_zero, c=zero_color, edgecolors='none')
-                    l4 = plt.scatter([], [], s=s_min, c=pos_color, edgecolors='none')
-                    l5 = plt.scatter([], [], s=s_max, c=pos_color, edgecolors='none')
+                    l4 = plt.scatter([], [], s=s_min, c=neg_color, edgecolors='none')
+                    l5 = plt.scatter([], [], s=s_max, c=neg_color, edgecolors='none')
 
-                    labels = ['{0:.2f}'.format(n) for n in [-n_max, -n_min, 0, n_min, n_max]]
+                    labels = ['{0:.2f}'.format(n) for n in [n_max, n_min, 0, -n_min, -n_max]]
 
                     leg = ax.legend([l1, l2, l3, l4, l5], labels, loc='upper left', bbox_to_anchor=(0, 1),
                                     title='Raw data', scatterpoints=1, fancybox=False,
@@ -793,8 +802,8 @@ class SAFE:
 
         if save_fig:
             path_to_fig = save_fig
-            if not os.path.isabs(path_to_fig):
-                path_to_fig = os.path.join(self.output_dir, save_fig)
+            # if not os.path.isabs(path_to_fig):
+            #     path_to_fig = os.path.join(self.output_dir, save_fig)
             print('Output path: %s' % path_to_fig)
             plt.savefig(path_to_fig, facecolor='k')
 
