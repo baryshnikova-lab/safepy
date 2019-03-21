@@ -175,14 +175,15 @@ class SAFE:
         # Overwrite the global settings, if required
         if 'attribute_file' in kwargs:
             self.path_to_attribute_file = kwargs['attribute_file']
+        else:
+            kwargs['attribute_file'] = self.path_to_attribute_file
 
         node_label_order = list(nx.get_node_attributes(self.graph, self.node_key_attribute).values())
 
         if self.verbose and isinstance(self.path_to_attribute_file, str):
             print('Loading attributes from %s' % self.path_to_attribute_file)
 
-        [self.attributes, _, self.node2attribute] = load_attributes(attribute_file=self.path_to_attribute_file,
-                                                                    node_label_order=node_label_order, **kwargs)
+        [self.attributes, _, self.node2attribute] = load_attributes(node_label_order=node_label_order, **kwargs)
 
     def define_neighborhoods(self, **kwargs):
 
@@ -503,6 +504,10 @@ class SAFE:
 
         t = np.sum(c, axis=1)
         c[np.isnan(t) | np.isinf(t), :] = [0, 0, 0, 0]
+
+        # Adjust brightness
+        c = c * (0.1 / np.nanmean(np.ravel(c[:, :-1])))
+        c = np.clip(c, None, 1)
 
         # Sort nodes by their overall brightness
         ix = np.argsort(np.sum(c, axis=1))
