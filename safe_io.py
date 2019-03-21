@@ -7,6 +7,7 @@ import numpy as np
 import scipy.io as spio
 import pandas as pd
 import zipfile
+import random
 
 from os.path import expanduser
 from scipy.spatial import ConvexHull
@@ -266,6 +267,7 @@ def load_attributes(attribute_file='', node_label_order=[], fill_value=np.nan, v
         elif (file_extension == '.txt') or (file_extension == '.gz'):
 
             node2attribute = pd.read_table(file_name)
+            node2attribute.iloc[:, 0] = node2attribute.iloc[:, 0].astype(str)
             node2attribute.set_index(node2attribute.columns[0], drop=True, inplace=True)
             node2attribute = node2attribute.apply(pd.to_numeric, downcast='float', errors='coerce')
 
@@ -333,7 +335,13 @@ def plot_network(G, ax=None):
         fig, ax = plt.subplots(figsize=(20, 10), facecolor='black', edgecolor='white')
         fig.set_facecolor("#000000")
 
-    nx.draw(G, ax=ax, pos=pos, node_color='#ffffff', edge_color='#ffffff', node_size=10, width=1, alpha=0.2)
+    # Randomly sample a fraction of the edges (when network is too big)
+    edges = tuple(G.edges())
+    if len(edges) > 30000:
+        edges = random.sample(edges, int(len(edges)*0.1))
+
+    nx.draw(G, ax=ax, pos=pos, edgelist=edges,
+            node_color='#ffffff', edge_color='#ffffff', node_size=10, width=1, alpha=0.2)
 
     ax.set_aspect('equal')
     ax.set_facecolor('#000000')
