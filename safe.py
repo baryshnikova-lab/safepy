@@ -483,6 +483,7 @@ class SAFE:
     def plot_composite_network(self, show_each_domain=False, show_domain_ids=True):
 
         domains = np.sort(self.attributes['domain'].unique())
+        # domains = self.domains.index.values
 
         # Define colors per domain
         domain2rgb = get_colors('hsv', len(domains))
@@ -500,7 +501,7 @@ class SAFE:
         node2all_domains_count = node2domain_count.sum(axis=1)[:, np.newaxis]
 
         with np.errstate(divide='ignore', invalid='ignore'):
-            c = np.matmul(node2domain_count, domain2rgb) / node2all_domains_count
+            c = np.matmul(node2domain_count.values, domain2rgb) / node2all_domains_count
 
         t = np.sum(c, axis=1)
         c[np.isnan(t) | np.isinf(t), :] = [0, 0, 0, 0]
