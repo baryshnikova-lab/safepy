@@ -540,15 +540,7 @@ class SAFE:
         # Sort nodes by their overall brightness
         ix = np.argsort(np.sum(c, axis=1))
 
-        x = dict(self.graph.nodes.data('x'))
-        y = dict(self.graph.nodes.data('y'))
-
-        ds = [x, y]
-        pos = {}
-        for k in x:
-            pos[k] = np.array([d[k] for d in ds])
-
-        pos2 = np.vstack(list(pos.values()))
+        node_xy = get_node_coordinates(self.graph)
 
         # Figure parameters
         num_plots = 2
@@ -569,7 +561,7 @@ class SAFE:
         ax = plot_network(self.graph, ax=ax)
 
         # Then, plot the composite network
-        axes[1].scatter(pos2[ix, 0], pos2[ix, 1], c=c[ix], s=60, edgecolor=None)
+        axes[1].scatter(node_xy[ix, 0], node_xy[ix, 1], c=c[ix], s=60, edgecolor=None)
         axes[1].set_aspect('equal')
         axes[1].set_facecolor('#000000')
 
@@ -579,8 +571,8 @@ class SAFE:
         if show_domain_ids:
             for domain in domains[domains > 0]:
                 idx = self.node2domain['primary_domain'] == domain
-                centroid_x = np.nanmean(pos2[idx, 0])
-                centroid_y = np.nanmean(pos2[idx, 1])
+                centroid_x = np.nanmean(node_xy[idx, 0])
+                centroid_y = np.nanmean(node_xy[idx, 1])
                 axes[1].text(centroid_x, centroid_y, str(domain),
                              fontdict={'size': 16, 'color': 'white', 'weight': 'bold'})
 
@@ -599,7 +591,7 @@ class SAFE:
 
                 idx = self.node2domain['primary_domain'] == domain
                 # ix = np.argsort(c)
-                axes[1+domain].scatter(pos2[idx, 0], pos2[idx, 1], c=c[idx],
+                axes[1+domain].scatter(node_xy[idx, 0], node_xy[idx, 1], c=c[idx],
                                        s=60, edgecolor=None)
                 axes[1+domain].set_aspect('equal')
                 axes[1+domain].set_facecolor('#000000')
@@ -631,15 +623,7 @@ class SAFE:
         elif isinstance(attributes, list):
             attributes = [list(self.attributes['name'].values).index(attribute) for attribute in attributes]
 
-        x = dict(self.graph.nodes.data('x'))
-        y = dict(self.graph.nodes.data('y'))
-
-        ds = [x, y]
-        pos = {}
-        for k in x:
-            pos[k] = np.array([d[k] for d in ds])
-
-        pos2 = np.vstack(list(pos.values()))
+        node_xy = get_node_coordinates(self.graph)
 
         # Figure parameters
 
@@ -693,7 +677,7 @@ class SAFE:
 
             cmap = LinearSegmentedColormap.from_list('my_cmap', colors_rgb)
 
-            sc = ax.scatter(pos2[idx, 0], pos2[idx, 1], c=score[idx, attribute], vmin=vmin, vmax=vmax,
+            sc = ax.scatter(node_xy[idx, 0], node_xy[idx, 1], c=score[idx, attribute], vmin=vmin, vmax=vmax,
                             s=60, cmap=cmap, norm=MidpointRangeNormalize(midrange=midrange, vmin=vmin, vmax=vmax),
                             edgecolors=None)
 
@@ -738,9 +722,7 @@ class SAFE:
 
                 with np.errstate(divide='ignore', invalid='ignore'):
 
-                    s_zero = 5
-                    s_min = 5
-                    s_max = 55
+                    [s_zero, s_min, s_max] = [5, 5, 55]
                     n = self.node2attribute[:, attribute]
 
                     n2a = np.abs(n)
@@ -760,18 +742,16 @@ class SAFE:
                         s[s > s_max] = s_max
 
                     # Colormap
-                    neg_color = '#ff1d23'   # red
-                    pos_color = '#00ff44'   # green
-                    zero_color = '#ffffff'  # white
+                    [neg_color, pos_color, zero_color] = ['#ff1d23', '#00ff44', '#ffffff']  # red, green, white
 
                     idx = self.node2attribute[:, attribute] < 0
-                    sc1 = ax.scatter(pos2[idx, 0], pos2[idx, 1], s=s[idx], c=neg_color, marker='.')
+                    sc1 = ax.scatter(node_xy[idx, 0], node_xy[idx, 1], s=s[idx], c=neg_color, marker='.')
 
                     idx = self.node2attribute[:, attribute] > 0
-                    sc2 = ax.scatter(pos2[idx, 0], pos2[idx, 1], s=s[idx], c=pos_color, marker='.')
+                    sc2 = ax.scatter(node_xy[idx, 0], node_xy[idx, 1], s=s[idx], c=pos_color, marker='.')
 
                     idx = self.node2attribute[:, attribute] == 0
-                    sc3 = ax.scatter(pos2[idx, 0], pos2[idx, 1], s=s_zero, c=zero_color, marker='.')
+                    sc3 = ax.scatter(node_xy[idx, 0], node_xy[idx, 1], s=s_zero, c=zero_color, marker='.')
 
                     # Legend
                     l1 = plt.scatter([], [], s=s_max, c=pos_color, edgecolors='none')
@@ -780,9 +760,9 @@ class SAFE:
                     l4 = plt.scatter([], [], s=s_min, c=neg_color, edgecolors='none')
                     l5 = plt.scatter([], [], s=s_max, c=neg_color, edgecolors='none')
 
-                    labels = ['{0:.2f}'.format(n) for n in [n_max, n_min, 0, -n_min, -n_max]]
+                    legend_labels = ['{0:.2f}'.format(n) for n in [n_max, n_min, 0, -n_min, -n_max]]
 
-                    leg = ax.legend([l1, l2, l3, l4, l5], labels, loc='upper left', bbox_to_anchor=(0, 1),
+                    leg = ax.legend([l1, l2, l3, l4, l5], legend_labels, loc='upper left', bbox_to_anchor=(0, 1),
                                     title='Raw data', scatterpoints=1, fancybox=False,
                                     facecolor='#000000', edgecolor='#000000')
 
@@ -797,7 +777,7 @@ class SAFE:
                 with np.errstate(divide='ignore', invalid='ignore'):
 
                     idx = np.abs(self.nes_binary[:, attribute]) > 0
-                    sn1 = ax.scatter(pos2[idx, 0], pos2[idx, 1], c='w', marker='+')
+                    sn1 = ax.scatter(node_xy[idx, 0], node_xy[idx, 1], c='w', marker='+')
 
                 # Legend
                 leg = ax.legend([sn1], ['p < 0.05'], loc='upper left', bbox_to_anchor=(0, 1),

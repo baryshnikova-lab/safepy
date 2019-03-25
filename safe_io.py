@@ -466,6 +466,21 @@ def plot_labels(labels, graph, ax):
                 horizontalalignment='center', verticalalignment='center')
 
 
+def get_node_coordinates(graph):
+
+    x = dict(graph.nodes.data('x'))
+    y = dict(graph.nodes.data('y'))
+
+    ds = [x, y]
+    pos = {}
+    for k in x:
+        pos[k] = np.array([d[k] for d in ds])
+
+    node_xy = np.vstack(list(pos.values()))
+
+    return node_xy
+
+
 def load_mat(filename):
     """
     this function should be called instead of direct spio.loadmat
