@@ -25,7 +25,7 @@ After the installation is complete, it is useful to run a "hello world" SAFE ana
 To do so, from within the safepy_env environment install a new ipython kernel:
 
 ```
-ipython kernel install --user --name=safepy
+ipython kernel install --user --name=safepy_env
 ```
 
 Then start jupyter, open `examples/Usage_examples.ipynb` and select the safepy kernel.
