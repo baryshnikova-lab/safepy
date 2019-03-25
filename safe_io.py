@@ -8,6 +8,7 @@ import scipy.io as spio
 import pandas as pd
 import zipfile
 import random
+import shutil
 
 from os.path import expanduser
 from scipy.spatial import ConvexHull
@@ -114,6 +115,9 @@ def load_network_from_cys(filename, verbose=True):
     zip_ref.extractall('./')
     zip_ref.close()
 
+    # Keep the name of the top directory (to remove the unzipped files after we're done)
+    top_dirs = list(set([f.split('/')[0] for f in files]))
+
     # Get node positions (from the view)
     viewfile = [f for f in files if '/views/' in f][0]
 
@@ -191,6 +195,10 @@ def load_network_from_cys(filename, verbose=True):
     G = nx.relabel_nodes(G, mapping)
 
     G = calculate_edge_lengths(G, verbose=verbose)
+
+    # Remove unzipped files/directories
+    for top_dir in top_dirs:
+        shutil.rmtree(top_dir)
 
     return G
 
