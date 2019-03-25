@@ -20,7 +20,7 @@ source safepy_env/bin/activate
 pip install -r extras/requirements.txt
 ```
 
-After the installation is complete, it is useful to run a "hello world" SAFE analysis using the Jupyter notebook at `examples/Usage_examples.ipynb`. 
+After the installation is complete, it is useful to run a "hello world" SAFE analysis using the Jupyter notebook at `examples/Example_1_GI_network_doxorubicin.ipynb`. 
 
 To do so, from within the safepy_env environment install a new ipython kernel:
 
@@ -28,7 +28,7 @@ To do so, from within the safepy_env environment install a new ipython kernel:
 ipython kernel install --user --name=safepy_env
 ```
 
-Then start jupyter, open `examples/Usage_examples.ipynb` and select the safepy kernel.
+Then start jupyter, open `examples/Example_1_GI_network_doxorubicin.ipynb` and select the safepy_env kernel.
 
 ```
 jupyter-notebook
