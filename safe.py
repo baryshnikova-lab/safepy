@@ -131,6 +131,13 @@ class SAFE:
         if not self.output_dir:
             self.output_dir = loc
 
+    def save(self, output_file='', **kwargs):
+        if not output_file:
+            output_file = os.path.join(os.getcwd(), 'safe_output.p')
+
+        with open(output_file, 'wb') as handle:
+            pickle.dump(self, handle)
+
     def load_network(self, **kwargs):
 
         # Overwriting the global settings, if required
@@ -376,6 +383,10 @@ class SAFE:
         if 'attribute_unimodality_metric' in kwargs:
             self.attribute_unimodality_metric = kwargs['attribute_unimodality_metric']
 
+        print('Criteria for top attributes:')
+        print('- minimum number of enriched neighborhoods: %d' % self.attribute_enrichment_min_size)
+        print('- region-specific distribution of enriched neighborhoods as defined by: %s' % self.attribute_unimodality_metric)
+
         self.attributes['top'] = False
 
         # Requirement 1: a minimum number of enriched neighborhoods
@@ -384,13 +395,27 @@ class SAFE:
 
         # Requirement 2: 1 connected component in the subnetwork of enriched neighborhoods
         if self.attribute_unimodality_metric == 'connectivity':
+
             self.attributes['num_connected_components'] = 0
-            for attribute in self.attributes.index.values[self.attributes['top'] == 1]:
+            self.attributes['size_connected_components'] = None
+            self.attributes['size_connected_components'] = self.attributes['size_connected_components'].astype(object)
+            self.attributes['num_large_connected_components'] = 0
+
+            for attribute in self.attributes.index.values[self.attributes['top']]:
                 enriched_neighborhoods = list(compress(list(self.graph), self.nes_binary[:, attribute] > 0))
                 H = nx.subgraph(self.graph, enriched_neighborhoods)
-                self.attributes.loc[attribute, 'num_connected_components'] = nx.number_connected_components(H)
+
+                connected_components = sorted(nx.connected_components(H), key=len, reverse=True)
+                num_connected_components = len(connected_components)
+                size_connected_components = np.array([len(c) for c in connected_components])
+                num_large_connected_components = np.sum(size_connected_components >= self.attribute_enrichment_min_size)
+
+                self.attributes.loc[attribute, 'num_connected_components'] = num_connected_components
+                self.attributes.at[attribute, 'size_connected_components'] = size_connected_components
+                self.attributes.loc[attribute, 'num_large_connected_components'] = num_large_connected_components
 
             # Exclude attributes that have more than 1 connected component
+            # self.attributes.loc[self.attributes['num_large_connected_components'] > 1, 'top'] = False
             self.attributes.loc[self.attributes['num_connected_components'] > 1, 'top'] = False
 
         if self.verbose:
@@ -493,10 +518,10 @@ class SAFE:
 
         # Compute composite node colors
         node2nes = pd.DataFrame(data=self.nes,
-                                    columns=[self.attributes.index.values, self.attributes['domain']])
+                                columns=[self.attributes.index.values, self.attributes['domain']])
 
         node2nes_binary = pd.DataFrame(data=self.nes_binary,
-                                           columns=[self.attributes.index.values, self.attributes['domain']])
+                                        columns=[self.attributes.index.values, self.attributes['domain']])
         node2domain_count = node2nes_binary.groupby(level='domain', axis=1).sum()
         node2all_domains_count = node2domain_count.sum(axis=1)[:, np.newaxis]
 
@@ -507,7 +532,9 @@ class SAFE:
         c[np.isnan(t) | np.isinf(t), :] = [0, 0, 0, 0]
 
         # Adjust brightness
-        c = c * (0.1 / np.nanmean(np.ravel(c[:, :-1])))
+        coeff_brightness = 0.1 / np.nanmean(np.ravel(c[:, :-1]))
+        if coeff_brightness > 1:
+            c = c * coeff_brightness
         c = np.clip(c, None, 1)
 
         # Sort nodes by their overall brightness
@@ -549,6 +576,14 @@ class SAFE:
         # Plot a circle around the network
         plot_network_contour(self.graph, axes[1])
 
+        if show_domain_ids:
+            for domain in domains[domains > 0]:
+                idx = self.node2domain['primary_domain'] == domain
+                centroid_x = np.nanmean(pos2[idx, 0])
+                centroid_y = np.nanmean(pos2[idx, 1])
+                axes[1].text(centroid_x, centroid_y, str(domain),
+                             fontdict={'size': 16, 'color': 'white', 'weight': 'bold'})
+
         # Then, plot each domain separately, if requested
         if show_each_domain:
             for domain in domains[domains > 0]:
@@ -566,13 +601,6 @@ class SAFE:
                 # ix = np.argsort(c)
                 axes[1+domain].scatter(pos2[idx, 0], pos2[idx, 1], c=c[idx],
                                        s=60, edgecolor=None)
-
-                if show_domain_ids:
-                    centroid_x = np.nanmean(pos2[idx, 0])
-                    centroid_y = np.nanmean(pos2[idx, 1])
-                    axes[1].text(centroid_x, centroid_y, str(domain),
-                                 fontdict={'size': 16, 'color': 'white', 'weight': 'bold'})
-
                 axes[1+domain].set_aspect('equal')
                 axes[1+domain].set_facecolor('#000000')
                 axes[1+domain].set_title('Domain %d\n%s' % (domain, self.domains.loc[domain, 'label']),
