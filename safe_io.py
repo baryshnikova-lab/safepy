@@ -298,7 +298,7 @@ def load_attributes(attribute_file='', node_label_order=[], fill_value=np.nan, v
         node2attribute = node2attribute.groupby(node2attribute.index, axis=0).mean()
 
     node2attribute = node2attribute.reindex(index=node_label_order, fill_value=fill_value)
-    node2attribute = node2attribute.as_matrix()
+    node2attribute = node2attribute.values
 
     if verbose:
         print('\nAttribute data provided: %d labels x %d attributes' % (len(node_label_in_file), attributes.shape[0]))
@@ -411,7 +411,7 @@ def plot_costanzo2016_network_annotations(graph, ax, path_to_data):
     processes = processes[pd.notnull(processes)]
 
     process_colors = pd.read_table(os.path.join(path_to_data, 'other/costanzo_2016_colors.txt'))
-    process_colors = process_colors[['R', 'G', 'B']].as_matrix()/256
+    process_colors = process_colors[['R', 'G', 'B']].values/256
 
     labels = nx.get_node_attributes(graph, 'label')
     # labels = nx.get_node_attributes(graph, 'shared_name')
