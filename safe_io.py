@@ -9,6 +9,7 @@ import pandas as pd
 import zipfile
 import random
 import shutil
+import ast
 
 from os.path import expanduser
 from scipy.spatial import ConvexHull
@@ -293,6 +294,9 @@ def load_attributes(attribute_file='', node_label_order=[], fill_value=np.nan, v
     # Force all values to numeric
     node2attribute = node2attribute.apply(pd.to_numeric, errors='coerce')
 
+    # Force attribute names to be strings
+    attributes['name'] = attributes['name'].astype(str)
+
     if not node_label_order:
         node_label_order = node2attribute.index.values
 
@@ -331,13 +335,7 @@ def load_attributes(attribute_file='', node_label_order=[], fill_value=np.nan, v
 
 def plot_network(G, ax=None):
 
-    x = dict(G.nodes.data('x'))
-    y = dict(G.nodes.data('y'))
-
-    ds = [x, y]
-    pos = {}
-    for k in x:
-        pos[k] = np.array([d[k] for d in ds])
+    node_xy = get_node_coordinates(G)
 
     if ax is None:
         fig, ax = plt.subplots(figsize=(20, 10), facecolor='black', edgecolor='white')
@@ -348,7 +346,7 @@ def plot_network(G, ax=None):
     if len(edges) > 30000:
         edges = random.sample(edges, int(len(edges)*0.1))
 
-    nx.draw(G, ax=ax, pos=pos, edgelist=edges,
+    nx.draw(G, ax=ax, pos=node_xy, edgelist=edges,
             node_color='#ffffff', edge_color='#ffffff', node_size=10, width=1, alpha=0.2)
 
     ax.set_aspect('equal')
@@ -422,7 +420,6 @@ def plot_costanzo2016_network_annotations(graph, ax, path_to_data):
     process_colors = process_colors[['R', 'G', 'B']].values/256
 
     labels = nx.get_node_attributes(graph, 'label')
-    # labels = nx.get_node_attributes(graph, 'shared_name')
     labels_dict = {k: v for v, k in labels.items()}
 
     x = list(dict(graph.nodes.data('x')).values())
