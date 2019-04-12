@@ -190,7 +190,8 @@ class SAFE:
         if self.verbose and isinstance(self.path_to_attribute_file, str):
             print('Loading attributes from %s' % self.path_to_attribute_file)
 
-        [self.attributes, _, self.node2attribute] = load_attributes(node_label_order=node_label_order, **kwargs)
+        [self.attributes, _, self.node2attribute] = load_attributes(node_label_order=node_label_order,
+                                                                    verbose=self.verbose, **kwargs)
 
     def define_neighborhoods(self, **kwargs):
 
@@ -275,12 +276,12 @@ class SAFE:
 
     def compute_pvalues_by_randomization(self, **kwargs):
 
-        print('Using randomization to calculate enrichment...')
-
         if kwargs:
             print('Current settings (possibly overwriting global ones):')
             for k in kwargs:
                 print('\t%s=%s' % (k, str(kwargs[k])))
+
+        print('Using randomization to calculate enrichment...')
 
         # Pause for 1 sec to prevent the progress bar from showing up too early
         time.sleep(1)
@@ -353,17 +354,38 @@ class SAFE:
 
     def compute_pvalues_by_hypergeom(self, **kwargs):
 
-        print('Using the hypergeometric test to calculate enrichment...')
         if kwargs:
-            print('Overwriting global settings:')
-            for k in kwargs:
-                print('\t%s=%s' % (k, str(kwargs[k])))
+            if 'verbose' in kwargs:
+                self.verbose = kwargs['verbose']
 
-        N = np.zeros([self.graph.number_of_nodes(), len(self.attributes)]) + self.graph.number_of_nodes()
+            if self.verbose:
+                print('Overwriting global settings:')
+                for k in kwargs:
+                    print('\t%s=%s' % (k, str(kwargs[k])))
+
+        if self.verbose:
+            print('Using the hypergeometric test to calculate enrichment...')
+
+        # Nodes with not-NaN values in >= 1 attribute
+        nodes_not_nan = np.any(~np.isnan(self.node2attribute), axis=1)
+
+        # -- Number of nodes
+        # n = self.graph.number_of_nodes()    # total
+        n = np.sum(nodes_not_nan)    # with not-NaN values in >=1 attribute
+
+        N = np.zeros([self.graph.number_of_nodes(), len(self.attributes)]) + n
+
+        # -- Number of nodes annotated to each attribute
         N_in_group = np.tile(np.nansum(self.node2attribute, axis=0), (self.graph.number_of_nodes(), 1))
 
-        N_in_neighborhood = np.tile(np.sum(self.neighborhoods, axis=0)[:, np.newaxis], (1, len(self.attributes)))
+        # -- Number of nodes in each neighborhood
+        # neighborhood_size = np.sum(self.neighborhoods, axis=0)[:, np.newaxis]    # total
+        neighborhood_size = np.dot(self.neighborhoods,
+                                   nodes_not_nan.astype(int))[:, np.newaxis] # with not-NaN values in >=1 attribute
 
+        N_in_neighborhood = np.tile(neighborhood_size, (1, len(self.attributes)))
+
+        # -- Number of nodes in each neighborhood and  annotated to each attribute
         N_in_neighborhood_in_group = np.dot(self.neighborhoods,
                                             np.where(~np.isnan(self.node2attribute), self.node2attribute, 0))
 
@@ -371,7 +393,10 @@ class SAFE:
 
         # Correct for multiple testing
         if self.multiple_testing:
-            print('Running FDR-adjustment of p-values...')
+
+            if self.verbose:
+                print('Running FDR-adjustment of p-values...')
+
             out = np.apply_along_axis(fdrcorrection, 1, self.pvalues_pos)
             self.pvalues_pos = out[:, 1, :]
 
@@ -605,7 +630,7 @@ class SAFE:
                                show_network=True,
                                show_costanzo2016=False, show_costanzo2016_legend=True,
                                show_raw_data=False, show_significant_nodes=False,
-                               show_colorbar=True,
+                               show_colorbar=True, colors=['82add6', 'facb66'],
                                labels=[],
                                save_fig=None, **kwargs):
 
@@ -672,7 +697,7 @@ class SAFE:
             idx = np.argsort(np.abs(score[:, attribute]))
 
             # Colormap
-            colors_hex = ['82add6', '000000', '000000', '000000', 'facb66']
+            colors_hex = [colors[0], '000000', '000000', '000000', colors[1]]
             colors_rgb = [tuple(int(c[i:i+2], 16)/255 for i in (0, 2, 4)) for c in colors_hex]
 
             cmap = LinearSegmentedColormap.from_list('my_cmap', colors_rgb)
