@@ -368,7 +368,11 @@ def plot_network(G, ax=None):
     return ax
 
 
-def plot_network_contour(graph, ax):
+def plot_network_contour(graph, ax, background_color='#000000'):
+
+    foreground_color = '#ffffff'
+    if background_color == '#ffffff':
+        foreground_color = '#000000'
 
     x = dict(graph.nodes.data('x'))
     y = dict(graph.nodes.data('y'))
@@ -401,13 +405,18 @@ def plot_network_contour(graph, ax):
 
     [xf, yf, rf] = fmin(err, [xm, ym, rm], disp=False)
 
-    circ = plt.Circle((xf, yf), radius=rf*1.01, color='w', linewidth=1, fill=False)
+    circ = plt.Circle((xf, yf), radius=rf*1.01, color=foreground_color, linewidth=1, fill=False)
     ax.add_patch(circ)
 
     return xf, yf, rf
 
 
-def plot_costanzo2016_network_annotations(graph, ax, path_to_data):
+def plot_costanzo2016_network_annotations(graph, ax, path_to_data, colors=True, clabels=False,
+                                          background_color='#000000'):
+
+    foreground_color = '#ffffff'
+    if background_color == '#ffffff':
+        foreground_color = '#000000'
 
     path_to_network_annotations = 'other/Data File S5_SAFE analysis_Gene cluster identity and functional enrichments.xlsx'
     filename = os.path.join(path_to_data, path_to_network_annotations)
@@ -417,7 +426,13 @@ def plot_costanzo2016_network_annotations(graph, ax, path_to_data):
     processes = processes[pd.notnull(processes)]
 
     process_colors = pd.read_table(os.path.join(path_to_data, 'other/costanzo_2016_colors.txt'))
-    process_colors = process_colors[['R', 'G', 'B']].values/256
+    if colors:
+        process_colors = process_colors[['R', 'G', 'B']].values / 256
+    else:
+        if foreground_color == '#ffffff':
+            process_colors = np.ones((process_colors.shape[0], 3))
+        else:
+            process_colors = np.zeros((process_colors.shape[0], 3))
 
     labels = nx.get_node_attributes(graph, 'label')
     labels_dict = {k: v for v, k in labels.items()}
@@ -443,8 +458,9 @@ def plot_costanzo2016_network_annotations(graph, ax, path_to_data):
 
         C = ax.contour(X, Y, Z, [1e-6], colors=[tuple(process_colors[n_process, :])], alpha=1)
 
-        C.levels = [n_process+1]
-        plt.clabel(C, C.levels, inline=True, fmt='%d', fontsize=16)
+        if clabels:
+            C.levels = [n_process+1]
+            plt.clabel(C, C.levels, inline=True, fmt='%d', fontsize=16)
 
         # print('%d: %s' % (n_process+1, process))
 
