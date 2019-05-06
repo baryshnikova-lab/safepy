@@ -7,6 +7,7 @@ import argparse
 import pickle
 import copy
 import time
+import re
 
 # Necessary check to make sure code runs both in Jupyter and in command line
 if 'matplotlib' not in sys.modules:
@@ -28,9 +29,9 @@ from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from scipy.spatial.distance import pdist, squareform
 from statsmodels.stats.multitest import fdrcorrection
 
-from safe_io import *
-from safe_extras import *
-from safe_colormaps import *
+from .safe_io import *
+from .safe_extras import *
+from .safe_colormaps import *
 
 
 class SAFE:
@@ -546,7 +547,7 @@ class SAFE:
                                 columns=[self.attributes.index.values, self.attributes['domain']])
 
         node2nes_binary = pd.DataFrame(data=self.nes_binary,
-                                        columns=[self.attributes.index.values, self.attributes['domain']])
+                                       columns=[self.attributes.index.values, self.attributes['domain']])
         node2domain_count = node2nes_binary.groupby(level='domain', axis=1).sum()
         node2all_domains_count = node2domain_count.sum(axis=1)[:, np.newaxis]
 
@@ -628,11 +629,16 @@ class SAFE:
 
     def plot_sample_attributes(self, attributes=1, top_attributes_only=False,
                                show_network=True,
-                               show_costanzo2016=False, show_costanzo2016_legend=True,
+                               show_costanzo2016=False, show_costanzo2016_colors=True, show_costanzo2016_clabels=False,
                                show_raw_data=False, show_significant_nodes=False,
                                show_colorbar=True, colors=['82add6', 'facb66'],
+                               background_color='#000000',
                                labels=[],
                                save_fig=None, **kwargs):
+
+        foreground_color = '#ffffff'
+        if background_color == '#ffffff':
+            foreground_color = '#000000'
 
         all_attributes = self.attributes.index.values
         if top_attributes_only:
@@ -697,7 +703,8 @@ class SAFE:
             idx = np.argsort(np.abs(score[:, attribute]))
 
             # Colormap
-            colors_hex = [colors[0], '000000', '000000', '000000', colors[1]]
+            colors_hex = [colors[0], background_color, background_color, background_color, colors[1]]
+            colors_hex = [re.sub(r'^#', '', c) for c in colors_hex]
             colors_rgb = [tuple(int(c[i:i+2], 16)/255 for i in (0, 2, 4)) for c in colors_hex]
 
             cmap = LinearSegmentedColormap.from_list('my_cmap', colors_rgb)
@@ -706,7 +713,7 @@ class SAFE:
                             s=60, cmap=cmap, norm=MidpointRangeNormalize(midrange=midrange, vmin=vmin, vmax=vmax),
                             edgecolors=None)
 
-            if not show_network:
+            if idx_attribute+nax == 0:
                 ax.invert_yaxis()
 
             if show_colorbar:
@@ -726,10 +733,10 @@ class SAFE:
                 cb.set_label('Neighborhood enrichment p-value', color='w')
 
                 # set colorbar tick color
-                cax.xaxis.set_tick_params(color='w')
+                cax.xaxis.set_tick_params(color=foreground_color)
 
                 # set colorbar edgecolor
-                cb.outline.set_edgecolor('white')
+                cb.outline.set_edgecolor(foreground_color)
                 cb.outline.set_linewidth(1)
 
                 # set colorbar ticklabels
@@ -739,9 +746,10 @@ class SAFE:
                                        r'$10^{%d}$' % midrange[0], r'$1$', r'$10^{%d}$' % -midrange[2],
                                        format(r'$10^{-%d}$' % vmax)])
 
-                cax.text(cax.get_xlim()[0], 1, 'Lower than random', verticalalignment='bottom', fontdict={'color': 'w'})
+                cax.text(cax.get_xlim()[0], 1, 'Lower than random', verticalalignment='bottom',
+                         fontdict={'color': foreground_color})
                 cax.text(cax.get_xlim()[1], 1, 'Higher than random', verticalalignment='bottom',
-                         horizontalalignment='right', fontdict={'color': 'w'})
+                         horizontalalignment='right', fontdict={'color': foreground_color})
 
             if show_raw_data:
 
@@ -767,7 +775,7 @@ class SAFE:
                         s[s > s_max] = s_max
 
                     # Colormap
-                    [neg_color, pos_color, zero_color] = ['#ff1d23', '#00ff44', '#ffffff']  # red, green, white
+                    [neg_color, pos_color, zero_color] = ['#ff1d23', '#00ff44', foreground_color]  # red, green, white
 
                     idx = self.node2attribute[:, attribute] < 0
                     sc1 = ax.scatter(node_xy[idx, 0], node_xy[idx, 1], s=s[idx], c=neg_color, marker='.')
@@ -789,13 +797,13 @@ class SAFE:
 
                     leg = ax.legend([l1, l2, l3, l4, l5], legend_labels, loc='upper left', bbox_to_anchor=(0, 1),
                                     title='Raw data', scatterpoints=1, fancybox=False,
-                                    facecolor='#000000', edgecolor='#000000')
+                                    facecolor=background_color, edgecolor=background_color)
 
                     for leg_txt in leg.get_texts():
-                        leg_txt.set_color('#ffffff')
+                        leg_txt.set_color(foreground_color)
 
                     leg_title = leg.get_title()
-                    leg_title.set_color('#ffffff')
+                    leg_title.set_color(foreground_color)
 
             if show_significant_nodes:
 
@@ -807,25 +815,28 @@ class SAFE:
                 # Legend
                 leg = ax.legend([sn1], ['p < 0.05'], loc='upper left', bbox_to_anchor=(0, 1),
                                 title='Significance', scatterpoints=1, fancybox=False,
-                                facecolor='#000000', edgecolor='#000000')
+                                facecolor=background_color, edgecolor=background_color)
 
                 for leg_txt in leg.get_texts():
-                    leg_txt.set_color('#ffffff')
+                    leg_txt.set_color(foreground_color)
 
                 leg_title = leg.get_title()
-                leg_title.set_color('#ffffff')
+                leg_title.set_color(foreground_color)
 
             if show_costanzo2016:
-                plot_costanzo2016_network_annotations(self.graph, ax, self.path_to_safe_data)
+                plot_costanzo2016_network_annotations(self.graph, ax, self.path_to_safe_data,
+                                                      colors=show_costanzo2016_colors,
+                                                      clabels=show_costanzo2016_clabels,
+                                                      background_color=background_color)
 
             # Plot a circle around the network
-            plot_network_contour(self.graph, ax)
+            plot_network_contour(self.graph, ax, background_color=background_color)
 
             if labels:
                 plot_labels(labels, self.graph, ax)
 
             ax.set_aspect('equal')
-            ax.set_facecolor('#000000')
+            ax.set_facecolor(background_color)
 
             ax.grid(False)
             ax.margins(0.1, 0.1)
@@ -833,18 +844,18 @@ class SAFE:
             title = self.attributes.loc[attribute, 'name']
 
             title = '\n'.join(textwrap.wrap(title, width=30))
-            ax.set_title(title, color='#ffffff')
+            ax.set_title(title, color=foreground_color)
 
             ax.set_frame_on(False)
 
-        fig.set_facecolor("#000000")
+        fig.set_facecolor(background_color)
 
         if save_fig:
             path_to_fig = save_fig
             # if not os.path.isabs(path_to_fig):
             #     path_to_fig = os.path.join(self.output_dir, save_fig)
             print('Output path: %s' % path_to_fig)
-            plt.savefig(path_to_fig, facecolor='k')
+            plt.savefig(path_to_fig, facecolor=background_color)
 
     def print_output_files(self, **kwargs):
 
