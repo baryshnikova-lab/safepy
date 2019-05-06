@@ -1,8 +1,8 @@
 import unittest
 
-import safe
-
 import numpy as np
+
+from safepy import safe
 
 
 class TestEnrichmentHypergeometric(unittest.TestCase):
@@ -50,6 +50,46 @@ class TestEnrichmentHypergeometric(unittest.TestCase):
 
         num_enriched_attributes = np.sum(self.sf.attributes['num_neighborhoods_enriched'] > 10)
         self.assertEqual(num_enriched_attributes, 2767, "Should be 2767.")
+
+
+class TestEnrichmentPermutations(unittest.TestCase):
+
+    def setUp(self):
+
+        # Load the default network
+        sf = safe.SAFE(verbose=False)
+        sf.load_network()
+        sf.define_neighborhoods()
+
+        # Load the binary attributes
+        sf.load_attributes(attribute_file='/Users/abaryshnikova/Lab/Datasets/safe-data/attributes/hoepfner_movva_2014_doxorubucin.txt')
+
+        # Run the enrichment
+        sf.compute_pvalues(num_permutations=1000, multiple_testing=False)
+
+        self.sf = sf
+
+    def test_attribute_numbers(self):
+
+        num_attributes = self.sf.attributes.shape[0]
+        self.assertEqual(num_attributes, 1, "Should be 1.")
+
+        num_nans = np.sum(np.isnan(self.sf.node2attribute))
+        self.assertEqual(num_nans, 1315, "Should be 1315.")
+
+        num_zeros = np.sum(self.sf.node2attribute[~np.isnan(self.sf.node2attribute)] == 0)
+        self.assertEqual(num_zeros, 1, "Should be 1.")
+
+        num_positives = np.sum(self.sf.node2attribute[~np.isnan(self.sf.node2attribute)] > 0)
+        self.assertEqual(num_positives, 1335, "Should be 1335.")
+
+        num_negatives = np.sum(self.sf.node2attribute[~np.isnan(self.sf.node2attribute)] < 0)
+        self.assertEqual(num_negatives, 1320, "Should be 1320.")
+
+    def test_enrichment_numbers(self):
+
+        num_enriched_neighborhoods = np.sum(self.sf.nes_binary > 0)
+        self.assertAlmostEqual(num_enriched_neighborhoods, 637, delta=20, msg="Should be 637 +/- 20.")
 
 
 if __name__ == '__main__':
