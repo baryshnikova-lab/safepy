@@ -1,7 +1,7 @@
 import unittest
 import networkx as nx
 
-from safe_io import *
+from safepy import safe_io
 
 
 class TestImportCys(unittest.TestCase):
@@ -9,7 +9,7 @@ class TestImportCys(unittest.TestCase):
     def setUp(self):
         # Load the network
         f = '/Users/abaryshnikova/Lab/Datasets/safe-data/networks/Costanzo_Science_2016.cys'
-        self.graph = load_network_from_cys(f, verbose=False)
+        self.graph = safe_io.load_network_from_cys(f, verbose=False)
 
     def test_size(self):
         num_nodes = nx.number_of_nodes(self.graph)
