@@ -97,7 +97,9 @@ class SAFE:
         # Load default settings
         default_config_path = os.path.join(loc, 'safe_default.ini')
         default_config = configparser.ConfigParser(allow_no_value=True, comment_prefixes=('#', ';', '{'))
-        default_config.read_file(open(default_config_path))
+
+        with open(default_config_path, 'r') as f:
+            default_config.read_file(f)
 
         # Load user-defined settings, if any
         config = configparser.ConfigParser(defaults=default_config['DEFAULT'],
