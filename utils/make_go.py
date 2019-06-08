@@ -52,6 +52,7 @@ def make_go_matrix(path_to_obo='', path_to_annotations='', go_branch='p'):
               'tree_path': path_to_obo,
               'annotations_path': path_to_annotations}
 
+    print("Saving the results at %s" % os.path.join(dirname_annotations, 'go_' + go_branch + '.p'))
     with open(os.path.join(dirname_annotations, 'go_' + go_branch + '.p'), 'wb') as handle:
         pickle.dump(output, handle)
 
@@ -169,10 +170,9 @@ def get_go_graph(path_to_obo):
     output = {'go_graph': go_graph,
               'go_details': go_details}
 
-    # Save for future re-uses
-    print("Saving results at %s" % os.path.join(dirname_obo, 'go.p'))
-    with open(os.path.join(dirname_obo, 'go.p'), 'wb') as handle:
-        pickle.dump(output, handle)
+    # # Save for future re-uses
+    # with open(os.path.join(dirname_obo, 'go.p'), 'wb') as handle:
+    #     pickle.dump(output, handle)
 
     return output
 
