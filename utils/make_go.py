@@ -18,11 +18,11 @@ import argparse
 def make_go_matrix(path_to_obo='', path_to_annotations='', go_branch='p'):
 
     """
-    Return a matrix of gene-to-term annotations (propagated) for a specified GO tree and set of annotations
+    Produces a matrix of gene-to-term annotations (propagated) for a specified GO tree and set of annotations
     :param path_to_obo: path the file containing the GO tree (downloadable from http://purl.obolibrary.org/obo/go/go-basic.obo)
     :param path_to_annotations: path to file containing species-specific gene-to-term annotations (e.g., http://current.geneontology.org/annotations/sgd.gaf.gz)
     :param go_branch: p, c or f for biological process, cellular component or molecular function terms
-    :return:
+    :return: txt file with gene-to-term matrix; pickle file with matrix and other details
     """
 
     dirname_annotations = os.path.dirname(path_to_annotations)
@@ -52,9 +52,14 @@ def make_go_matrix(path_to_obo='', path_to_annotations='', go_branch='p'):
               'tree_path': path_to_obo,
               'annotations_path': path_to_annotations}
 
-    print("Saving the results at %s" % os.path.join(dirname_annotations, 'go_' + go_branch + '.p'))
-    with open(os.path.join(dirname_annotations, 'go_' + go_branch + '.p'), 'wb') as handle:
+    pickle_path = os.path.join(dirname_annotations, 'go_' + go_branch + '.p')
+    print("Saving the results at %s" % pickle_path)
+    with open(pickle_path, 'wb') as handle:
         pickle.dump(output, handle)
+
+    txt_path = os.path.join(dirname_annotations, 'go_' + go_branch + '_matrix.txt')
+    print("Printing the gene-to-term matrix at %s" % txt_path)
+    go_matrix.to_csv(txt_path, sep='\t')
 
 
 def process_go_term(term):
