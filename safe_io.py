@@ -297,17 +297,16 @@ def load_attributes(attribute_file='', node_label_order=None, fill_value=np.nan,
     # Force attribute names to be strings
     attributes['name'] = attributes['name'].astype(str)
 
+    # Averaging out duplicate rows (with notification)
+    if ~node2attribute.index.is_unique:
+        print('\nDuplicate row labels detected. Their values will be averaged.')
+        node2attribute = node2attribute.groupby(node2attribute.index, axis=0).mean()
+        
     if not node_label_order:
         node_label_order = node2attribute.index.values
 
     node_label_in_file = node2attribute.index.values
     node_label_not_mapped = [x for x in node_label_in_file if x not in node_label_order]
-    node_label_mapped = [x for x in node_label_in_file if x in node_label_order]
-
-    # Averaging out duplicate rows (with notification)
-    if len(node_label_in_file) != len(set(node_label_in_file)):
-        print('\nDuplicate row labels detected. Their values will be averaged.')
-        node2attribute = node2attribute.groupby(node2attribute.index, axis=0).mean()
 
     node2attribute = node2attribute.reindex(index=node_label_order, fill_value=fill_value)
     node2attribute = node2attribute.values
