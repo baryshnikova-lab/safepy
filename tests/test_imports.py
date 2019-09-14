@@ -38,7 +38,7 @@ class TestImportAttributes(unittest.TestCase):
 
         sf = copy.deepcopy(self.sf)
 
-        f = '/Users/abaryshnikova/Lab/Datasets/safe-data/attributes/sample_annotation_file.txt'
+        f = '/Users/abaryshnikova/Lab/Datasets/safe-data/tests/attribute_file_with_unmatched_duplicated_labels.txt'
         sf.load_attributes(attribute_file=f)
 
 
