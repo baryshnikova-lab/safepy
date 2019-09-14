@@ -252,7 +252,7 @@ def calculate_edge_lengths(G, verbose=True):
     return G
 
 
-def load_attributes(attribute_file='', node_label_order=[], fill_value=np.nan, verbose=True):
+def load_attributes(attribute_file='', node_label_order=None, fill_value=np.nan, verbose=True):
 
     node2attribute = pd.DataFrame()
     attributes = pd.DataFrame()
@@ -275,7 +275,7 @@ def load_attributes(attribute_file='', node_label_order=[], fill_value=np.nan, v
 
         elif (file_extension == '.txt') or (file_extension == '.gz'):
 
-            node2attribute = pd.read_table(file_name)
+            node2attribute = pd.read_csv(file_name, sep='\t')
             node2attribute.iloc[:, 0] = node2attribute.iloc[:, 0].astype(str)
             node2attribute.set_index(node2attribute.columns[0], drop=True, inplace=True)
             node2attribute = node2attribute.apply(pd.to_numeric, downcast='float', errors='coerce')
@@ -297,17 +297,16 @@ def load_attributes(attribute_file='', node_label_order=[], fill_value=np.nan, v
     # Force attribute names to be strings
     attributes['name'] = attributes['name'].astype(str)
 
+    # Averaging out duplicate rows (with notification)
+    if ~node2attribute.index.is_unique:
+        print('\nDuplicate row labels detected. Their values will be averaged.')
+        node2attribute = node2attribute.groupby(node2attribute.index, axis=0).mean()
+        
     if not node_label_order:
         node_label_order = node2attribute.index.values
 
     node_label_in_file = node2attribute.index.values
     node_label_not_mapped = [x for x in node_label_in_file if x not in node_label_order]
-    node_label_mapped = [x for x in node_label_in_file if x in node_label_order]
-
-    # Averaging out duplicate rows (with notification)
-    if len(node_label_mapped) != len(set(node_label_mapped)):
-        print('\nDuplicate row labels detected. Their values will be averaged.')
-        node2attribute = node2attribute.groupby(node2attribute.index, axis=0).mean()
 
     node2attribute = node2attribute.reindex(index=node_label_order, fill_value=fill_value)
     node2attribute = node2attribute.values
