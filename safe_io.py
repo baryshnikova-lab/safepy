@@ -275,7 +275,7 @@ def load_attributes(attribute_file='', node_label_order=None, fill_value=np.nan,
 
         elif (file_extension == '.txt') or (file_extension == '.gz'):
 
-            node2attribute = pd.read_table(file_name)
+            node2attribute = pd.read_csv(file_name, sep='\t')
             node2attribute.iloc[:, 0] = node2attribute.iloc[:, 0].astype(str)
             node2attribute.set_index(node2attribute.columns[0], drop=True, inplace=True)
             node2attribute = node2attribute.apply(pd.to_numeric, downcast='float', errors='coerce')
