@@ -298,7 +298,7 @@ def load_attributes(attribute_file='', node_label_order=None, fill_value=np.nan,
     attributes['name'] = attributes['name'].astype(str)
 
     # Averaging out duplicate rows (with notification)
-    if ~node2attribute.index.is_unique:
+    if not node2attribute.index.is_unique:
         print('\nDuplicate row labels detected. Their values will be averaged.')
         node2attribute = node2attribute.groupby(node2attribute.index, axis=0).mean()
         
