@@ -59,6 +59,7 @@ class SAFE:
         self.neighborhood_radius_type = None
         self.neighborhood_radius = None
 
+        self.background = 'attribute_file'
         self.num_permutations = 1000
         self.multiple_testing = False
         self.neighborhood_score_type = 'sum'
@@ -122,6 +123,8 @@ class SAFE:
 
         if 'Analysis parameters' not in config:
             config['Analysis parameters'] = {}
+
+        self.background = config.get('Analysis parameters', 'background')
         self.node_distance_metric = config.get('Analysis parameters', 'nodeDistanceType')
         self.neighborhood_radius_type = config.get('Analysis parameters', 'neighborhoodRadiusType')
         self.neighborhood_radius = float(config.get('Analysis parameters', 'neighborhoodRadius'))
@@ -264,6 +267,18 @@ class SAFE:
         if 'multiple_testing' in kwargs:
             self.multiple_testing = kwargs['multiple_testing']
 
+        if self.background == 'network':
+            print('Setting all null attribute values to 0. Using the network as background for enrichment.')
+            self.node2attribute[np.isnan(self.node2attribute)] = 0
+
+        num_vals = self.node2attribute.shape[0]
+        num_nans = np.sum(np.isnan(self.node2attribute), axis=0)
+
+        if any(num_nans/num_vals > 0.5):
+            print('WARNING: more than 50% of nodes in the network as set to NaN and will be ignored for calculating enrichment.')
+            print('Consider setting sf.background = ''network''.')
+
+        # Warn users if more than 50% of values are NaN
         num_other_values = np.sum(~np.isnan(self.node2attribute) & ~np.isin(self.node2attribute, [0, 1]))
 
         if (self.enrichment_type == 'hypergeometric') or ((self.enrichment_type == 'auto') and (num_other_values == 0)):
