@@ -42,6 +42,8 @@ class SAFE:
 
         self.verbose = verbose
 
+        self.default_config = None
+
         self.path_to_safe_data = None
         self.path_to_network_file = None
         self.path_to_attribute_file = None
@@ -90,6 +92,9 @@ class SAFE:
         # Read both default and user-defined settings
         self.read_config(path_to_ini_file)
 
+        # Validate config
+        self.validate_config()
+
     def read_config(self, path_to_ini_file):
 
         # Location of this code
@@ -97,15 +102,20 @@ class SAFE:
 
         # Load default settings
         default_config_path = os.path.join(loc, 'safe_default.ini')
-        default_config = configparser.ConfigParser(allow_no_value=True, comment_prefixes=('#', ';', '{'))
+        default_config = configparser.ConfigParser(allow_no_value=True,
+                                                   comment_prefixes=('#', ';', '{'),
+                                                   inline_comment_prefixes='#')
 
         with open(default_config_path, 'r') as f:
             default_config.read_file(f)
 
+        self.default_config = default_config['DEFAULT']
+
         # Load user-defined settings, if any
         config = configparser.ConfigParser(defaults=default_config['DEFAULT'],
                                            allow_no_value=True,
-                                           comment_prefixes=('#', ';', '{'))
+                                           comment_prefixes=('#', ';', '{'),
+                                           inline_comment_prefixes='#')
         config.read(path_to_ini_file)
 
         if 'Input files' not in config:
@@ -137,6 +147,27 @@ class SAFE:
         if not self.output_dir:
             self.output_dir = loc
 
+    def validate_config(self):
+
+        # Check that the option parameters are valid
+        if self.background not in ['attribute_file', 'network']:
+            user_setting = self.background
+            self.background = self.default_config.get('background')    # Restore the default value.
+            raise ValueError(('%s is not a valid setting for background. '
+                              'Valid options are: attribute_file, network.' % user_setting))
+
+        if self.node_distance_metric not in ['euclidean', 'shortpath', 'shortpath_weighted_layout']:
+            user_setting = self.node_distance_metric
+            self.node_distance_metric = self.default_config.get('nodeDistanceType')    # Restore the default value.
+            raise ValueError(('%s is not a valid setting for node_distance_metric. '
+                              'Valid options are: euclidean, shortpath, shortpath_weighted_layout' % user_setting))
+
+        if self.attribute_sign not in ['highest', 'lowest', 'both']:
+            user_setting = self.attribute_sign
+            self.attribute_sign = self.default_config.get('annotationsign')   # Restore the default value.
+            raise ValueError(('%s is not a valid setting for attribute_sign. '
+                              'Valid options are: highest, lowest, both' % user_setting))
+
     def save(self, output_file='', **kwargs):
         if not output_file:
             output_file = os.path.join(os.getcwd(), 'safe_output.p')
@@ -151,6 +182,9 @@ class SAFE:
             self.path_to_network_file = kwargs['network_file']
         if 'node_key_attribute' in kwargs:
             self.node_key_attribute = kwargs['node_key_attribute']
+
+        # Make sure that the settings are still valid
+        self.validate_config()
 
         if type(self.path_to_network_file) == nx.Graph:
 
@@ -191,6 +225,9 @@ class SAFE:
         else:
             kwargs['attribute_file'] = self.path_to_attribute_file
 
+        # Make sure that the settings are still valid
+        self.validate_config()
+
         node_label_order = list(nx.get_node_attributes(self.graph, self.node_key_attribute).values())
 
         if self.verbose and isinstance(self.path_to_attribute_file, str):
@@ -210,6 +247,9 @@ class SAFE:
 
         if 'neighborhood_radius' in kwargs:
             self.neighborhood_radius = kwargs['neighborhood_radius']
+
+        # Make sure that the settings are still valid
+        self.validate_config()
 
         all_shortest_paths = {}
         neighborhoods = np.zeros([self.graph.number_of_nodes(), self.graph.number_of_nodes()], dtype=int)
@@ -267,6 +307,9 @@ class SAFE:
         if 'multiple_testing' in kwargs:
             self.multiple_testing = kwargs['multiple_testing']
 
+        # Make sure that the settings are still valid
+        self.validate_config()
+
         if self.background == 'network':
             print('Setting all null attribute values to 0. Using the network as background for enrichment.')
             self.node2attribute[np.isnan(self.node2attribute)] = 0
@@ -298,6 +341,9 @@ class SAFE:
             print('Current settings (possibly overwriting global ones):')
             for k in kwargs:
                 print('\t%s=%s' % (k, str(kwargs[k])))
+
+        # Make sure that the settings are still valid
+        self.validate_config()
 
         print('Using randomization to calculate enrichment...')
 
@@ -381,6 +427,9 @@ class SAFE:
                 for k in kwargs:
                     print('\t%s=%s' % (k, str(kwargs[k])))
 
+        # Make sure that the settings are still valid
+        self.validate_config()
+
         if self.verbose:
             print('Using the hypergeometric test to calculate enrichment...')
 
@@ -426,6 +475,9 @@ class SAFE:
         if 'attribute_unimodality_metric' in kwargs:
             self.attribute_unimodality_metric = kwargs['attribute_unimodality_metric']
 
+        # Make sure that the settings are still valid
+        self.validate_config()
+
         print('Criteria for top attributes:')
         print('- minimum number of enriched neighborhoods: %d' % self.attribute_enrichment_min_size)
         print('- region-specific distribution of enriched neighborhoods as defined by: %s' % self.attribute_unimodality_metric)
@@ -469,6 +521,9 @@ class SAFE:
         # Overwriting global settings, if necessary
         if 'attribute_distance_threshold' in kwargs:
             self.attribute_distance_threshold = kwargs['attribute_distance_threshold']
+
+        # Make sure that the settings are still valid
+        self.validate_config()
 
         m = self.nes_binary[:, self.attributes['top']].T
         Z = linkage(m, method='average', metric=self.attribute_distance_metric)

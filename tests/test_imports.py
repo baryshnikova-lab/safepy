@@ -23,20 +23,20 @@ class TestImportCys(unittest.TestCase):
 class TestImportAttributes(unittest.TestCase):
 
     def setUp(self):
-        # Load the default network
-        sf = safe.SAFE(verbose=False)
-        sf.load_network()
-
-        self.sf = sf
+        pass
 
     def test_default(self):
 
-        sf = copy.deepcopy(self.sf)
+        # Load the default network
+        sf = safe.SAFE(verbose=False)
+        sf.load_network()
         sf.load_attributes()
 
     def test_attribute_with_duplicate_values(self):
 
-        sf = copy.deepcopy(self.sf)
+        # Load the default network
+        sf = safe.SAFE(verbose=False)
+        sf.load_network()
 
         f = '/Users/abaryshnikova/Lab/Datasets/safe-data/tests/attribute_file_with_unmatched_duplicated_labels.txt'
         sf.load_attributes(attribute_file=f)

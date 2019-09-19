@@ -8,16 +8,14 @@ from safepy import safe
 class TestDefineNeighborhoods(unittest.TestCase):
 
     def setUp(self):
+        pass
+
+    def test_default(self):
 
         # Load the default network
         sf = safe.SAFE(verbose=False)
         sf.load_network()
 
-        self.sf = sf
-
-    def test_default(self):
-
-        sf = copy.deepcopy(self.sf)
         sf.define_neighborhoods()
 
         num_neighbors = np.sum(sf.neighborhoods, axis=1)
@@ -29,7 +27,10 @@ class TestDefineNeighborhoods(unittest.TestCase):
 
     def test_euclidean(self):
 
-        sf = copy.deepcopy(self.sf)
+        # Load the default network
+        sf = safe.SAFE(verbose=False)
+        sf.load_network()
+        
         sf.define_neighborhoods(node_distance_metric='euclidean')
 
         num_neighbors = np.sum(sf.neighborhoods, axis=1)
@@ -41,7 +42,10 @@ class TestDefineNeighborhoods(unittest.TestCase):
 
     def test_shortpath(self):
 
-        sf = copy.deepcopy(self.sf)
+        # Load the default network
+        sf = safe.SAFE(verbose=False)
+        sf.load_network()
+
         sf.define_neighborhoods(node_distance_metric='shortpath',
                                 neighborhood_radius=1)
 
