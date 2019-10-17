@@ -1,3 +1,4 @@
+#! /usr/bin/env python
 import configparser
 import os
 import sys
@@ -29,9 +30,9 @@ from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from scipy.spatial.distance import pdist, squareform
 from statsmodels.stats.multitest import fdrcorrection
 
-from .safe_io import *
-from .safe_extras import *
-from .safe_colormaps import *
+from safe_io import *
+from safe_extras import *
+from safe_colormaps import *
 
 
 class SAFE:
@@ -176,12 +177,12 @@ class SAFE:
             pickle.dump(self, handle)
 
     def load_network(self, **kwargs):
-
         # Overwriting the global settings, if required
         if 'network_file' in kwargs:
             self.path_to_network_file = kwargs['network_file']
         if 'node_key_attribute' in kwargs:
             self.node_key_attribute = kwargs['node_key_attribute']
+
 
         # Make sure that the settings are still valid
         self.validate_config()
@@ -603,7 +604,7 @@ class SAFE:
 
         plot_network(self.graph)
 
-    def plot_composite_network(self, show_each_domain=False, show_domain_ids=True):
+    def plot_composite_network(self, show_each_domain=False, show_domain_ids=True, save_fig=None, background_color='#000000'):
 
         domains = np.sort(self.attributes['domain'].unique())
         # domains = self.domains.index.values
@@ -698,6 +699,12 @@ class SAFE:
                 plot_network_contour(self.graph, axes[1+domain])
 
         fig.set_facecolor("#000000")
+        if save_fig:
+            path_to_fig = save_fig
+            # if not os.path.isabs(path_to_fig):
+            #     path_to_fig = os.path.join(self.output_dir, save_fig)
+            print('Output path: %s' % path_to_fig)
+            fig.savefig(path_to_fig, facecolor=background_color)
 
     def plot_sample_attributes(self, attributes=1, top_attributes_only=False,
                                show_network=True,
