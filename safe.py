@@ -176,6 +176,9 @@ class SAFE:
         with open(output_file, 'wb') as handle:
             pickle.dump(self, handle)
 
+    def save_gpickle(self, output_file='', **kwargs):
+        nx.write_gpickle(self.graph, output_file + '.gpickle')
+
     def load_network(self, **kwargs):
         # Overwriting the global settings, if required
         if 'network_file' in kwargs:
@@ -202,7 +205,7 @@ class SAFE:
                 self.graph = load_network_from_mat(self.path_to_network_file, verbose=self.verbose)
             elif file_extension == '.gpickle':
                 self.graph = load_network_from_gpickle(self.path_to_network_file, verbose=self.verbose)
-                self.node_key_attribute = 'label_orf'
+                #self.node_key_attribute = 'label_orf'
             elif file_extension == '.txt':
                 self.graph = load_network_from_txt(self.path_to_network_file, verbose=self.verbose)
             elif file_extension == '.cys':
