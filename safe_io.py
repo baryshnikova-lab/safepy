@@ -252,7 +252,7 @@ def calculate_edge_lengths(G, verbose=True):
     return G
 
 
-def load_attributes(attribute_file='', node_label_order=None, fill_value=np.nan, verbose=True):
+def load_attributes(attribute_file='', node_label_order=None, mask_duplicates=False, fill_value=np.nan, verbose=True):
 
     node2attribute = pd.DataFrame()
     attributes = pd.DataFrame()
@@ -299,7 +299,7 @@ def load_attributes(attribute_file='', node_label_order=None, fill_value=np.nan,
 
     # Averaging out duplicate rows (with notification)
     if not node2attribute.index.is_unique:
-        print('\nDuplicate row labels detected. Their values will be averaged.')
+        print('\nThe attribute file contains multiple values for the same labels. Their values will be averaged.')
         node2attribute = node2attribute.groupby(node2attribute.index, axis=0).mean()
         
     if not node_label_order:
@@ -309,6 +309,20 @@ def load_attributes(attribute_file='', node_label_order=None, fill_value=np.nan,
     node_label_not_mapped = [x for x in node_label_in_file if x not in node_label_order]
 
     node2attribute = node2attribute.reindex(index=node_label_order, fill_value=fill_value)
+
+    # If necessary, de-duplicate the network nodes (leave one node per gene)
+    if mask_duplicates:
+
+        # Keep a random node every time
+        idx = np.random.permutation(np.arange(len(node2attribute)))
+        mask_dups = node2attribute.iloc[idx].duplicated(keep='first')
+
+        num_dups = mask_dups.sum()
+        print('\nThe network contains %d nodes with duplicate labels. '
+              'Only one random node per label will be considered. '
+              'The attribute values of all other nodes will be set to NaN.' % num_dups)
+        node2attribute.iloc[idx[mask_dups], :] = np.nan
+
     node2attribute = node2attribute.values
 
     if verbose:
