@@ -297,7 +297,7 @@ def load_attributes(attribute_file='', node_label_order=None, mask_duplicates=Fa
     # Force attribute names to be strings
     attributes['name'] = attributes['name'].astype(str)
 
-    # Averaging out duplicate rows (with notification)
+    # Averaging duplicate rows (with notification)
     if not node2attribute.index.is_unique:
         print('\nThe attribute file contains multiple values for the same labels. Their values will be averaged.')
         node2attribute = node2attribute.groupby(node2attribute.index, axis=0).mean()
@@ -315,7 +315,7 @@ def load_attributes(attribute_file='', node_label_order=None, mask_duplicates=Fa
 
         # Keep a random node every time
         idx = np.random.permutation(np.arange(len(node2attribute)))
-        mask_dups = node2attribute.iloc[idx].duplicated(keep='first')
+        mask_dups = node2attribute.iloc[idx].index.duplicated(keep='first')
 
         num_dups = mask_dups.sum()
         print('\nThe network contains %d nodes with duplicate labels. '
