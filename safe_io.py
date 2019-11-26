@@ -20,7 +20,7 @@ from collections import Counter
 from xml.dom import minidom
 
 
-def load_network_from_txt(filename, layout='spring_embedded', verbose=True):
+def load_network_from_txt(filename, layout='spring_embedded', node_key_attribute='key', verbose=True):
 
     filename = re.sub('~', expanduser('~'), filename)
     data = pd.read_table(filename, sep='\t', header=None)
@@ -62,7 +62,7 @@ def load_network_from_txt(filename, layout='spring_embedded', verbose=True):
 
     for n in G:
         G.nodes[n]['label'] = nodes.loc[n, 'node_label1']
-        G.nodes[n]['key'] = nodes.loc[n, 'node_key1']
+        G.nodes[n][node_key_attribute] = nodes.loc[n, 'node_key1']
 
     # Add the edges between the nodes
     edges = [tuple(x) for x in data[['node_index1', 'node_index2']].values]
@@ -346,13 +346,17 @@ def load_attributes(attribute_file='', node_label_order=None, mask_duplicates=Fa
     return attributes, node_label_order, node2attribute
 
 
-def plot_network(G, ax=None):
+def plot_network(G, ax=None, background_color='#000000'):
+
+    foreground_color = '#ffffff'
+    if background_color == '#ffffff':
+        foreground_color = '#000000'
 
     node_xy = get_node_coordinates(G)
 
     if ax is None:
-        fig, ax = plt.subplots(figsize=(20, 10), facecolor='black', edgecolor='white')
-        fig.set_facecolor("#000000")
+        fig, ax = plt.subplots(figsize=(20, 10), facecolor=background_color, edgecolor=foreground_color)
+        fig.set_facecolor(background_color)
 
     # Randomly sample a fraction of the edges (when network is too big)
     edges = tuple(G.edges())
@@ -360,21 +364,21 @@ def plot_network(G, ax=None):
         edges = random.sample(edges, int(len(edges)*0.1))
 
     nx.draw(G, ax=ax, pos=node_xy, edgelist=edges,
-            node_color='#ffffff', edge_color='#ffffff', node_size=10, width=1, alpha=0.2)
+            node_color=foreground_color, edge_color=foreground_color, node_size=10, width=1, alpha=0.2)
 
     ax.set_aspect('equal')
-    ax.set_facecolor('#000000')
+    ax.set_facecolor(background_color)
 
     ax.grid(False)
     ax.invert_yaxis()
     ax.margins(0.1, 0.1)
 
-    ax.set_title('Network', color='#ffffff')
+    ax.set_title('Network', color=foreground_color)
 
     plt.axis('off')
 
     try:
-        fig.set_facecolor("#000000")
+        fig.set_facecolor(background_color)
     except NameError:
         pass
 

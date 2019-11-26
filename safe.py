@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 import configparser
 import os
 import sys
@@ -49,7 +51,7 @@ class SAFE:
         self.path_to_attribute_file = None
 
         self.graph = None
-        self.node_key_attribute = 'key'
+        self.node_key_attribute = 'label_orf'
 
         self.attributes = None
         self.nodes = None
@@ -201,9 +203,10 @@ class SAFE:
                 self.graph = load_network_from_mat(self.path_to_network_file, verbose=self.verbose)
             elif file_extension == '.gpickle':
                 self.graph = load_network_from_gpickle(self.path_to_network_file, verbose=self.verbose)
-                self.node_key_attribute = 'label_orf'
             elif file_extension == '.txt':
-                self.graph = load_network_from_txt(self.path_to_network_file, verbose=self.verbose)
+                self.graph = load_network_from_txt(self.path_to_network_file,
+                                                   node_key_attribute=self.node_key_attribute,
+                                                   verbose=self.verbose)
             elif file_extension == '.cys':
                 self.graph = load_network_from_cys(self.path_to_network_file, verbose=self.verbose)
 
@@ -216,6 +219,14 @@ class SAFE:
         self.nodes = pd.DataFrame(data={'id': list(label_list.keys()),
                                         'key': list(key_list.values()),
                                         'label': list(label_list.values())})
+
+    def save_network(self, **kwargs):
+        if 'output_file' in kwargs:
+            output_file = kwargs['output_file']
+        else:
+            output_file = os.path.join(os.getcwd(), self.path_to_network_file + '.gpickle')
+
+        nx.write_gpickle(self.graph, output_file)
 
     def load_attributes(self, **kwargs):
 
@@ -599,11 +610,16 @@ class SAFE:
             print('Removed %d domains because they were the top choice for less than %d neighborhoods.'
                   % (len(to_remove), self.attribute_enrichment_min_size))
 
-    def plot_network(self):
+    def plot_network(self, background_color='#000000'):
+        plot_network(self.graph, background_color=background_color)
 
-        plot_network(self.graph)
+    def plot_composite_network(self, show_each_domain=False, show_domain_ids=True,
+                               save_fig=None,
+                               background_color='#000000'):
 
-    def plot_composite_network(self, show_each_domain=False, show_domain_ids=True):
+        foreground_color = '#ffffff'
+        if background_color == '#ffffff':
+            foreground_color = '#000000'
 
         domains = np.sort(self.attributes['domain'].unique())
         # domains = self.domains.index.values
@@ -651,20 +667,20 @@ class SAFE:
         figsize = (10 * ncols, 10 * nrows)
 
         [fig, axes] = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, sharex=True, sharey=True,
-                                   facecolor='#000000')
+                                   facecolor=background_color)
         axes = axes.ravel()
 
         # First, plot the network
         ax = axes[0]
-        ax = plot_network(self.graph, ax=ax)
+        ax = plot_network(self.graph, ax=ax, background_color=background_color)
 
         # Then, plot the composite network
         axes[1].scatter(node_xy[ix, 0], node_xy[ix, 1], c=c[ix], s=60, edgecolor=None)
         axes[1].set_aspect('equal')
-        axes[1].set_facecolor('#000000')
+        axes[1].set_facecolor(background_color)
 
         # Plot a circle around the network
-        plot_network_contour(self.graph, axes[1])
+        plot_network_contour(self.graph, axes[1], background_color=background_color)
 
         if show_domain_ids:
             for domain in domains[domains > 0]:
@@ -672,7 +688,7 @@ class SAFE:
                 centroid_x = np.nanmean(node_xy[idx, 0])
                 centroid_y = np.nanmean(node_xy[idx, 1])
                 axes[1].text(centroid_x, centroid_y, str(domain),
-                             fontdict={'size': 16, 'color': 'white', 'weight': 'bold'})
+                             fontdict={'size': 16, 'color': foreground_color, 'weight': 'bold'})
 
         # Then, plot each domain separately, if requested
         if show_each_domain:
@@ -692,12 +708,17 @@ class SAFE:
                 axes[1+domain].scatter(node_xy[idx, 0], node_xy[idx, 1], c=c[idx],
                                        s=60, edgecolor=None)
                 axes[1+domain].set_aspect('equal')
-                axes[1+domain].set_facecolor('#000000')
+                axes[1+domain].set_facecolor(background_color)
                 axes[1+domain].set_title('Domain %d\n%s' % (domain, self.domains.loc[domain, 'label']),
-                                         color='#ffffff')
-                plot_network_contour(self.graph, axes[1+domain])
+                                         color=foreground_color)
+                plot_network_contour(self.graph, axes[1+domain], background_color=background_color)
 
-        fig.set_facecolor("#000000")
+        fig.set_facecolor(background_color)
+
+        if save_fig:
+            path_to_fig = save_fig
+            print('Output path: %s' % path_to_fig)
+            plt.savefig(path_to_fig, facecolor=background_color)
 
     def plot_sample_attributes(self, attributes=1, top_attributes_only=False,
                                show_network=True,
@@ -711,7 +732,7 @@ class SAFE:
         foreground_color = '#ffffff'
         if background_color == '#ffffff':
             foreground_color = '#000000'
-
+            
         all_attributes = self.attributes.index.values
         if top_attributes_only:
             all_attributes = all_attributes[self.attributes['top']]
@@ -738,7 +759,8 @@ class SAFE:
         ncols = np.min([len(attributes)+nax, 2])
         figsize = (10*ncols, 10*nrows)
 
-        [fig, axes] = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, sharex=True, sharey=True)
+        [fig, axes] = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, sharex=True, sharey=True,
+                                   facecolor=background_color)
 
         if isinstance(axes, np.ndarray):
             axes = axes.ravel()
@@ -748,7 +770,7 @@ class SAFE:
         # First, plot the network (if required)
         if show_network:
             ax = axes[0]
-            _ = plot_network(self.graph, ax=ax)
+            ax = plot_network(self.graph, ax=ax, background_color=background_color)
 
         score = self.nes
 
