@@ -30,7 +30,7 @@ class TestDefineNeighborhoods(unittest.TestCase):
         # Load the default network
         sf = safe.SAFE(verbose=False)
         sf.load_network()
-        
+
         sf.define_neighborhoods(node_distance_metric='euclidean')
 
         num_neighbors = np.sum(sf.neighborhoods, axis=1)
