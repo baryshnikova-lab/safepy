@@ -44,10 +44,10 @@ safe_data = <path_to_safe-data_folder>
 ...
 ```
 
-It may also be useful to run a series of unit tests to verify that SAFE provides the correct outputs for default inputs. Tests are progressively being written and added to the repository. To run all the existing tests (from the folder containing `safepy`):
+It may also be useful to run a series of unit tests to verify that SAFE provides the correct outputs for default inputs. Tests are progressively being written and added to the repository. To run all the existing tests (from the `safepy` folder):
 
 ```
-python3.6 -m unittest discover -v -s safepy/tests/
+python3.6 -m unittest discover -v -s tests/
 ```
 
 
