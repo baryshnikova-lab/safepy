@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from safepy import safe
+import safe
 
 
 class TestEnrichmentHypergeometric(unittest.TestCase):

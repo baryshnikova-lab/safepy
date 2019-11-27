@@ -2,7 +2,7 @@ import unittest
 import copy
 import numpy as np
 
-from safepy import safe
+import safe
 
 
 class TestDefineNeighborhoods(unittest.TestCase):

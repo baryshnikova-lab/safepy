@@ -3,7 +3,8 @@ import copy
 import networkx as nx
 import numpy as np
 
-from safepy import safe, safe_io
+import safe
+import safe_io
 
 
 class TestImportCys(unittest.TestCase):

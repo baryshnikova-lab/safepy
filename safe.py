@@ -31,9 +31,9 @@ from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from scipy.spatial.distance import pdist, squareform
 from statsmodels.stats.multitest import fdrcorrection
 
-from .safe_io import *
-from .safe_extras import *
-from .safe_colormaps import *
+from safe_io import *
+from safe_extras import *
+from safe_colormaps import *
 
 
 class SAFE:
@@ -732,7 +732,7 @@ class SAFE:
         foreground_color = '#ffffff'
         if background_color == '#ffffff':
             foreground_color = '#000000'
-            
+
         all_attributes = self.attributes.index.values
         if top_attributes_only:
             all_attributes = all_attributes[self.attributes['top']]
