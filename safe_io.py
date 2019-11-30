@@ -490,7 +490,7 @@ def plot_labels(labels, graph, ax):
     x = list(dict(graph.nodes.data('x')).values())
     y = list(dict(graph.nodes.data('y')).values())
 
-    x_offset = (np.nanmax(x) - np.nanmin(x))*0.01
+    # x_offset = (np.nanmax(x) - np.nanmin(x))*0.01
 
     idx = [node_labels_dict[x] for x in labels if x in node_labels_dict.keys()]
     labels_idx = [x for x in labels if x in node_labels_dict.keys()]
@@ -502,6 +502,12 @@ def plot_labels(labels, graph, ax):
         ax.text(x_idx[i], y_idx[i], labels_idx[i], fontdict={'color': 'white', 'size': 14, 'weight': 'bold'},
                 bbox={'facecolor': 'black', 'alpha': 0.5, 'pad': 3},
                 horizontalalignment='center', verticalalignment='center')
+
+    # Print out labels not found
+    labels_missing = [x for x in labels if x not in node_labels_dict.keys()]
+    if labels_missing:
+        labels_missing_str = ', '.join(labels_missing)
+        print('These labels are missing from the network (case sensitive): %s' % labels_missing_str)
 
 
 def get_node_coordinates(graph):

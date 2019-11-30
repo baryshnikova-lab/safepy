@@ -614,7 +614,7 @@ class SAFE:
         plot_network(self.graph, background_color=background_color)
 
     def plot_composite_network(self, show_each_domain=False, show_domain_ids=True,
-                               save_fig=None,
+                               save_fig=None, labels=[],
                                background_color='#000000'):
 
         foreground_color = '#ffffff'
@@ -681,6 +681,10 @@ class SAFE:
 
         # Plot a circle around the network
         plot_network_contour(self.graph, axes[1], background_color=background_color)
+
+        # Plot the labels, if any
+        if labels:
+            plot_labels(labels, self.graph, axes[1])
 
         if show_domain_ids:
             for domain in domains[domains > 0]:
@@ -926,6 +930,7 @@ class SAFE:
             # Plot a circle around the network
             plot_network_contour(self.graph, ax, background_color=background_color)
 
+            # Plot the labels, if any
             if labels:
                 plot_labels(labels, self.graph, ax)
 
