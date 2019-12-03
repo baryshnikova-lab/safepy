@@ -717,6 +717,10 @@ class SAFE:
                                          color=foreground_color)
                 plot_network_contour(self.graph, axes[1+domain], background_color=background_color)
 
+                # Plot the labels, if any
+                if labels:
+                    plot_labels(labels, self.graph, axes[1+domain])
+
         fig.set_facecolor(background_color)
 
         if save_fig:
