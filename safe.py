@@ -37,10 +37,23 @@ from safe_colormaps import *
 
 
 class SAFE:
+    """
+    Defines an instance of SAFE analysis.
+    Contains all data, all parameters and provides the main methods for performing analysis.
+
+    """
 
     def __init__(self,
                  path_to_ini_file='',
                  verbose=True):
+        """
+        Initiate a SAFE instance and define the main settings for analysis.
+        The settings are automatically extracted from the specified (or default) INI configuration file.
+        Alternatively, each setting can be changed manually after initiation.
+
+        :param path_to_ini_file (str): Path to the configuration file. If not specified, safe_default.ini will be used.
+        :param verbose (bool): Defines whether or not intermediate output will be printed out.
+        """
 
         self.verbose = verbose
 
@@ -99,6 +112,13 @@ class SAFE:
 
     def read_config(self, path_to_ini_file):
 
+        """
+        Read the settings from an INI file and update the attributes in the SAFE class.
+
+        :param path_to_ini_file (str): Path to the configuration file. If not specified, safe_default.ini will be used.
+        :return: none
+        """
+
         # Location of this code
         loc = os.path.dirname(os.path.abspath(__file__))
 
@@ -151,6 +171,12 @@ class SAFE:
 
     def validate_config(self):
 
+        """
+        Test the validity of the current settings in the SAFE class before running the analysis.
+
+        :return: none
+        """
+
         # Check that the option parameters are valid
         if self.background not in ['attribute_file', 'network']:
             user_setting = self.background
@@ -170,6 +196,26 @@ class SAFE:
             raise ValueError(('%s is not a valid setting for attribute_sign. '
                               'Valid options are: highest, lowest, both' % user_setting))
 
+        if not isinstance(self.num_permutations, int) or (self.num_permutations < 10):
+            self.num_permutations = 1000    # Restore the default value.
+            raise ValueError('num_permutations must be an integer equal or greater than 10.')
+
+        if not isinstance(self.enrichment_threshold, float) or (self.enrichment_threshold <= 0) or (self.enrichment_threshold >= 1):
+            self.enrichment_threshold = 0.05    # Restore the default value.
+            raise ValueError('enrichment_threshold must be in the (0,1) range.')
+
+        if not isinstance(self.enrichment_max_log10, (int, float)):
+            self.enrichment_max_log10 = 16    # Restore the default value.
+            raise ValueError('enrichment_max_log10 must be a number.')
+
+        if not isinstance(self.attribute_enrichment_min_size, int) or (self.attribute_enrichment_min_size < 2):
+            self.attribute_enrichment_min_size = 10    # Restore the default value.
+            raise ValueError('attribute_enrichment_min_size must be an integer equal or greater than 2.')
+
+        if not isinstance(self.attribute_distance_threshold, float) or (self.attribute_distance_threshold <= 0) or (self.attribute_distance_threshold >= 1):
+            self.attribute_distance_threshold = 0.75    # Restore the default value.
+            raise ValueError('attribute_enrichment_min_size must be a float number in the (0,1) range.')
+
     def save(self, output_file='', **kwargs):
         if not output_file:
             output_file = os.path.join(os.getcwd(), 'safe_output.p')
@@ -178,6 +224,12 @@ class SAFE:
             pickle.dump(self, handle)
 
     def load_network(self, **kwargs):
+        """
+        Load the network from a source file and, if necessary, apply a network layout.
+
+        :param kwargs:
+        :return: none
+        """
 
         # Overwriting the global settings, if required
         if 'network_file' in kwargs:
@@ -353,9 +405,6 @@ class SAFE:
             for k in kwargs:
                 print('\t%s=%s' % (k, str(kwargs[k])))
 
-        # Make sure that the settings are still valid
-        self.validate_config()
-
         print('Using randomization to calculate enrichment...')
 
         # Pause for 1 sec to prevent the progress bar from showing up too early
@@ -367,6 +416,9 @@ class SAFE:
         num_processes = 1
         if 'processes' in kwargs:
             num_processes = kwargs['processes']
+
+        # Make sure that the settings are still valid
+        self.validate_config()
 
         N_in_neighborhood_in_group = compute_neighborhood_score(self.neighborhoods,
                                                                 self.node2attribute,
