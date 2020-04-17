@@ -238,7 +238,8 @@ def read_annotations(path_to_annotations):
     """
 
     print("Reading the gene-to-GO term annotations...")
-    go_annotations = pd.read_csv(path_to_annotations, delimiter='\t', header=None, comment="!")
+    go_annotations = pd.read_csv(path_to_annotations, delimiter='\t', header=None, comment="!",
+                                 dtype={1: str, 10: str})
     go_annotations.index = go_annotations[1]
     return go_annotations
 
