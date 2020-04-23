@@ -21,6 +21,16 @@ from xml.dom import minidom
 
 
 def load_network_from_txt(filename, layout='spring_embedded', node_key_attribute='key', verbose=True):
+    """
+    Loads network from tab-delimited text file and applies a network layout.
+
+    :param str filename: Path to the network file
+    :param str layout: Name of the network layout to be applied
+    :param str node_key_attribute: Name of the node attribute to be used as key for matching with additional attributes
+    :param bool verbose:
+    :return:
+
+    """
 
     filename = re.sub('~', expanduser('~'), filename)
     data = pd.read_table(filename, sep='\t', header=None)
@@ -275,8 +285,7 @@ def load_attributes(attribute_file='', node_label_order=None, mask_duplicates=Fa
 
         elif (file_extension == '.txt') or (file_extension == '.gz'):
 
-            node2attribute = pd.read_csv(file_name, sep='\t')
-            node2attribute.iloc[:, 0] = node2attribute.iloc[:, 0].astype(str)
+            node2attribute = pd.read_csv(file_name, sep='\t', dtype={0: str})
             node2attribute.set_index(node2attribute.columns[0], drop=True, inplace=True)
             node2attribute = node2attribute.apply(pd.to_numeric, downcast='float', errors='coerce')
 
