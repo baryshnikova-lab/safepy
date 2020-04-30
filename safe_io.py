@@ -487,8 +487,7 @@ def plot_costanzo2016_network_annotations(graph, ax, path_to_data, colors=True, 
         if clabels:
             C.levels = [n_process+1]
             plt.clabel(C, C.levels, inline=True, fmt='%d', fontsize=16)
-
-        # print('%d: %s' % (n_process+1, process))
+            print('%d -- %s' % (n_process+1, process))
 
 
 def plot_labels(labels, graph, ax):
