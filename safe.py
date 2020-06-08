@@ -40,7 +40,6 @@ class SAFE:
     """
     Defines an instance of SAFE analysis.
     Contains all data, all parameters and provides the main methods for performing analysis.
-
     """
 
     def __init__(self,
@@ -53,6 +52,7 @@ class SAFE:
 
         :param path_to_ini_file (str): Path to the configuration file. If not specified, safe_default.ini will be used.
         :param verbose (bool): Defines whether or not intermediate output will be printed out.
+
         """
 
         self.verbose = verbose
@@ -227,7 +227,10 @@ class SAFE:
         """
         Load the network from a source file and, if necessary, apply a network layout.
 
-        :param kwargs:
+        Keyword Args:
+            * network_file (:obj:`str`, optional): Path to the file containing the network.
+            * node_key_attribute (:obj:`str`, optional): Name of the node attribute that should be treated as key identifier.
+
         :return: none
         """
 
@@ -538,6 +541,9 @@ class SAFE:
         if 'attribute_unimodality_metric' in kwargs:
             self.attribute_unimodality_metric = kwargs['attribute_unimodality_metric']
 
+        if 'attribute_enrichment_min_size' in kwargs:
+            self.attribute_enrichment_min_size = kwargs['attribute_enrichment_min_size']
+
         # Make sure that the settings are still valid
         self.validate_config()
 
@@ -560,6 +566,7 @@ class SAFE:
             self.attributes['num_large_connected_components'] = 0
 
             for attribute in self.attributes.index.values[self.attributes['top']]:
+
                 enriched_neighborhoods = list(compress(list(self.graph), self.nes_binary[:, attribute] > 0))
                 H = nx.subgraph(self.graph, enriched_neighborhoods)
 
@@ -884,7 +891,7 @@ class SAFE:
 
                 # pad = 0, shrink = 1,
                 # set colorbar label plus label color
-                cb.set_label('Neighborhood enrichment p-value', color='w')
+                cb.set_label('Neighborhood enrichment p-value', color=foreground_color)
 
                 # set colorbar tick color
                 cax.xaxis.set_tick_params(color=foreground_color)
@@ -894,7 +901,7 @@ class SAFE:
                 cb.outline.set_linewidth(1)
 
                 # set colorbar ticklabels
-                plt.setp(plt.getp(cb.ax.axes, 'xticklabels'), color='w')
+                plt.setp(plt.getp(cb.ax.axes, 'xticklabels'), color=foreground_color)
 
                 cb.ax.set_xticklabels([format(r'$10^{%d}$' % vmin),
                                        r'$10^{%d}$' % midrange[0], r'$1$', r'$10^{%d}$' % -midrange[2],
@@ -1007,8 +1014,8 @@ class SAFE:
 
         if save_fig:
             path_to_fig = save_fig
-            # if not os.path.isabs(path_to_fig):
-            #     path_to_fig = os.path.join(self.output_dir, save_fig)
+            if not os.path.isabs(path_to_fig):
+                path_to_fig = os.path.join(self.output_dir, save_fig)
             print('Output path: %s' % path_to_fig)
             plt.savefig(path_to_fig, facecolor=background_color)
 
