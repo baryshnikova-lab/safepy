@@ -191,7 +191,8 @@ def load_network_from_cys(filename, verbose=True):
     contains = ['/tables/', file_name, 'SHARED_ATTRS', 'node.cytable']
     attributefile = [f for f in files if all(c in f for c in contains)]
 
-    attributes = pd.read_csv(attributefile[0], sep=',', header=None)
+    attributes = pd.read_csv(attributefile[0], sep=',', header=None, skiprows=1)
+
     col_headers = []
     row_start = 0
     for ix_row in np.arange(7):
