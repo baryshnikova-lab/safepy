@@ -4,10 +4,8 @@ import configparser
 import os
 import sys
 import textwrap
-import time
 import argparse
 import pickle
-import copy
 import time
 import re
 
@@ -22,12 +20,9 @@ import numpy as np
 import multiprocessing as mp
 
 from matplotlib.colors import LinearSegmentedColormap
-from matplotlib import ticker, cm
-from tqdm import tqdm
-from functools import partial
 from scipy.stats import hypergeom
 from itertools import compress
-from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import pdist, squareform
 from statsmodels.stats.multitest import fdrcorrection
 
@@ -267,13 +262,18 @@ class SAFE:
 
         # Setting the node key for mapping attributes
         key_list = nx.get_node_attributes(self.graph, self.node_key_attribute)
-        nx.set_node_attributes(self.graph, key_list, name='key')
 
-        label_list = nx.get_node_attributes(self.graph, 'label')
-
-        self.nodes = pd.DataFrame(data={'id': list(label_list.keys()),
-                                        'key': list(key_list.values()),
-                                        'label': list(label_list.values())})
+        if not bool(key_list):
+            raise Exception('The specified node key attribute (%s) does not exist in this network. '
+                            'These attributes exist instead: %s. '
+                            'Set node_key_attribute to one of these options.'
+                            % (self.node_key_attribute, ', '.join(self.graph.node[0].keys())))
+        else:
+            nx.set_node_attributes(self.graph, key_list, name='key')
+            label_list = nx.get_node_attributes(self.graph, 'label')
+            self.nodes = pd.DataFrame(data={'id': list(label_list.keys()),
+                                            'key': list(key_list.values()),
+                                            'label': list(label_list.values())})
 
     def save_network(self, **kwargs):
         if 'output_file' in kwargs:
