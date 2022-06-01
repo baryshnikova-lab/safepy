@@ -1,5 +1,7 @@
 import re
 import os
+from pathlib import Path
+import logging
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -30,25 +32,53 @@ def load_network_from_txt(filename, layout='spring_embedded', node_key_attribute
     :param bool verbose:
     :return:
 
+    Notes:
+        1. Header (column names) should not be present in the file with '.txt' extension.
     """
 
     filename = re.sub('~', expanduser('~'), filename)
-
+    
     # Get the number of columns first
-    with open(filename, 'r') as f:
-        first_line = f.readline()
-        num_cols = len(first_line.split('\t'))
-
+    if not Path(filename).suffix=='.gz':
+        with open(filename, 'r') as f:
+            first_line = f.readline()
+            num_cols = len(first_line.split('\t'))
+    else:
+        import gzip
+        with gzip.open(filename,'rt') as f:
+            first_line = f.readline()
+            num_cols = len(first_line.split('\t'))
+            
+    ## parameters provided to `pd.read_table`
+    if Path(filename).suffixes[0]=='.txt':
+        kws_read_table=dict(header=None,
+                            # names=None,
+                           )
+    if Path(filename).suffixes[0]=='.tsv':
+        kws_read_table=dict(
+                            header=0, # column names in the first line
+                            names=range(num_cols),
+                           )    
+    else:
+        raise ValueError(f'extension {Path(filename).suffixes[0]} not supported')
+            
     if num_cols == 3:
 
-        data = pd.read_table(filename, sep='\t', header=None, dtype={0: str, 1: str, 2: float})
+        data = pd.read_table(filename, sep='\t', 
+                             dtype={0: str, 1: str, 2: float},
+                             **kws_read_table,
+                            )        
         data = data.rename(columns={0: 'node_key1', 1: 'node_key2', 2: 'edge_weight'})
         data['node_label1'] = data['node_key1']
         data['node_label2'] = data['node_key2']
 
     elif num_cols == 5:
 
-        data = pd.read_table(filename, sep='\t', header=None, dtype={0: str, 1: str, 2: str, 3: str, 4: float})
+        data = pd.read_table(filename, sep='\t', 
+                             # dtype={0: str, 1: str, 2: str, 3: str, 4: float},
+                             **kws_read_table,
+                            )
+        
         data = data.rename(
             columns={0: 'node_label1', 1: 'node_key1', 2: 'node_label2', 3: 'node_key2', 4: 'edge_weight'})
 
@@ -103,7 +133,7 @@ def load_network_from_mat(filename, verbose=True):
     filename = re.sub('~', expanduser('~'), filename)
 
     if verbose:
-        print('Loading the mat file...')
+        logging.info('Loading the mat file...')
 
     mat = load_mat(filename)
     G = nx.Graph(mat['layout']['edges'])
@@ -124,7 +154,7 @@ def load_network_from_cys(filename, verbose=True):
     filename = re.sub('~', expanduser('~'), filename)
 
     if verbose:
-        print('Loading the cys file %s...' % filename)
+        logging.info('Loading the cys file %s...' % filename)
 
     # Unzip CYS file
     zip_ref = zipfile.ZipFile(filename, 'r')
@@ -139,7 +169,7 @@ def load_network_from_cys(filename, verbose=True):
     viewfile = [f for f in files if '/views/' in f][0]
 
     if verbose:
-        print('Loading the first view: %s' % viewfile)
+        logging.info('Loading the first view: %s' % viewfile)
 
     mydoc = minidom.parse(viewfile)
     nodes = mydoc.getElementsByTagName('node')
@@ -160,7 +190,7 @@ def load_network_from_cys(filename, verbose=True):
     networkfile = [f for f in files if '/networks/' in f][0]
 
     if verbose:
-        print('Loading the first network: %s' % networkfile)
+        logging.info('Loading the first network: %s' % networkfile)
 
     mydoc = minidom.parse(networkfile)
     edges = mydoc.getElementsByTagName('edge')
@@ -234,14 +264,14 @@ def apply_network_layout(G, layout='kamada_kawai', verbose=True):
     if layout == 'kamada_kawai':
 
         if verbose:
-            print('Applying the Kamada-Kawai network layout... (may take several minutes)')
+            logging.info('Applying the Kamada-Kawai network layout... (may take several minutes)')
 
         pos = nx.kamada_kawai_layout(G)
 
     elif layout == 'spring_embedded':
 
         if verbose:
-            print('Applying the spring-embedded network layout... (may take several minutes)')
+            logging.info('Applying the spring-embedded network layout... (may take several minutes)')
 
         pos = nx.spring_layout(G, k=0.2, iterations=100)
 
@@ -257,7 +287,7 @@ def calculate_edge_lengths(G, verbose=True):
     # Calculate the lengths of the edges
 
     if verbose:
-        print('Calculating edge lengths...')
+        logging.info('Calculating edge lengths...')
 
     x = np.matrix(G.nodes.data('x'))[:, 1]
     y = np.matrix(G.nodes.data('y'))[:, 1]
@@ -323,7 +353,7 @@ def load_attributes(attribute_file='', node_label_order=None, mask_duplicates=Fa
 
     # Averaging duplicate rows (with notification)
     if not node2attribute.index.is_unique:
-        print('\nThe attribute file contains multiple values for the same labels. Their values will be averaged.')
+        logging.info('\nThe attribute file contains multiple values for the same labels. Their values will be averaged.')
         node2attribute = node2attribute.groupby(node2attribute.index, axis=0).mean()
         
     if not node_label_order:
@@ -342,7 +372,7 @@ def load_attributes(attribute_file='', node_label_order=None, mask_duplicates=Fa
         mask_dups = node2attribute.iloc[idx].index.duplicated(keep='first')
 
         num_dups = mask_dups.sum()
-        print('\nThe network contains %d nodes with duplicate labels. '
+        logging.info('\nThe network contains %d nodes with duplicate labels. '
               'Only one random node per label will be considered. '
               'The attribute values of all other nodes will be set to NaN.' % num_dups)
         node2attribute.iloc[idx[mask_dups], :] = np.nan
@@ -350,7 +380,7 @@ def load_attributes(attribute_file='', node_label_order=None, mask_duplicates=Fa
     node2attribute = node2attribute.values
 
     if verbose:
-        print('\nAttribute data provided: %d labels x %d attributes' % (len(node_label_in_file), attributes.shape[0]))
+        logging.info('\nAttribute data provided: %d labels x %d attributes' % (len(node_label_in_file), attributes.shape[0]))
 
         # Notification about labels **not** mapped onto the network
         n = np.min([len(node_label_not_mapped), 3])
@@ -358,14 +388,14 @@ def load_attributes(attribute_file='', node_label_order=None, mask_duplicates=Fa
         if n > 0:
             msg1 = ', '.join(node_label_not_mapped[:n])
             msg2 = format(' and %d other labels in the attribute file were not found in the network.' % m)
-            print(msg1 + msg2)
+            logging.info(msg1 + msg2)
 
         n_nlm = len(node_label_in_file) - len(node_label_not_mapped)
-        print('\nAttribute data mapped onto the network: %d labels x %d attributes' % (n_nlm, attributes.shape[0]))
-        print('Values: %d NaNs' % np.sum(np.isnan(node2attribute)))
-        print('Values: %d zeros' % np.sum(node2attribute[~np.isnan(node2attribute)] == 0))
-        print('Values: %d positives' % np.sum(node2attribute[~np.isnan(node2attribute)] > 0))
-        print('Values: %d negatives' % np.sum(node2attribute[~np.isnan(node2attribute)] < 0))
+        logging.info('\nAttribute data mapped onto the network: %d labels x %d attributes' % (n_nlm, attributes.shape[0]))
+        logging.info('Values: %d NaNs' % np.sum(np.isnan(node2attribute)))
+        logging.info('Values: %d zeros' % np.sum(node2attribute[~np.isnan(node2attribute)] == 0))
+        logging.info('Values: %d positives' % np.sum(node2attribute[~np.isnan(node2attribute)] > 0))
+        logging.info('Values: %d negatives' % np.sum(node2attribute[~np.isnan(node2attribute)] < 0))
 
     return attributes, node_label_order, node2attribute
 
@@ -387,7 +417,7 @@ def plot_network(G, ax=None, background_color='#000000',
 
     # Randomly sample a fraction of the edges (when network is too big)
     edges = tuple(G.edges())
-    if len(edges) >= 30000:
+    if len(edges) >= random_sampling_edges_min:
         edges = random.sample(edges, int(len(edges)*0.1))
 
     nx.draw(G, ax=ax, pos=node_xy, edgelist=edges,
@@ -505,7 +535,7 @@ def plot_costanzo2016_network_annotations(graph, ax, path_to_data, colors=True, 
         if clabels:
             C.levels = [n_process+1]
             plt.clabel(C, C.levels, inline=True, fmt='%d', fontsize=16)
-            print('%d -- %s' % (n_process+1, process))
+            logging.info('%d -- %s' % (n_process+1, process))
 
 
 def plot_labels(labels, graph, ax):
@@ -529,11 +559,11 @@ def plot_labels(labels, graph, ax):
                 bbox={'facecolor': 'black', 'alpha': 0.5, 'pad': 3},
                 horizontalalignment='center', verticalalignment='center')
 
-    # Print out labels not found
+    # print out labels not found
     labels_missing = [x for x in labels if x not in node_labels_dict.keys()]
     if labels_missing:
         labels_missing_str = ', '.join(labels_missing)
-        print('These labels are missing from the network (case sensitive): %s' % labels_missing_str)
+        logging.info('These labels are missing from the network (case sensitive): %s' % labels_missing_str)
 
 
 def get_node_coordinates(graph):
