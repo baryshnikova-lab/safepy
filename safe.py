@@ -942,7 +942,7 @@ class SAFE:
 
                 cmap = LinearSegmentedColormap.from_list('my_cmap', colors_rgb)
 
-                sc = ax.scatter(node_xy[idx, 0], node_xy[idx, 1], c=score[idx, attribute], vmin=vmin, vmax=vmax,
+                sc = ax.scatter(node_xy[idx, 0], node_xy[idx, 1], c=score[idx, attribute],
                                 s=60, cmap=cmap, norm=MidpointRangeNormalize(midrange=midrange, vmin=vmin, vmax=vmax),
                                 edgecolors=None)
 
