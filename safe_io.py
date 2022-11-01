@@ -57,9 +57,9 @@ def load_network_from_txt(filename, layout='spring_embedded', node_key_attribute
         raise ValueError('Unknown network file format. 3 or 5 columns are expected.')
 
     # Merge nodes1 and nodes2 and drop duplicates
-    nodes = data[['node_label1', 'node_key1']] \
-        .append(data[['node_label2', 'node_key2']].rename(columns={'node_label2': 'node_label1', 'node_key2': 'node_key1'})) \
-        .drop_duplicates()
+    t1 = data[['node_label1', 'node_key1']]
+    t2 = data[['node_label2', 'node_key2']].rename(columns={'node_label2': 'node_label1', 'node_key2': 'node_key1'})
+    nodes = pd.concat([t1, t2], ignore_index=True).drop_duplicates()
 
     # Re-number the node index
     nodes = nodes.reset_index(drop=True)
