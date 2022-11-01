@@ -56,6 +56,7 @@ class SAFE:
 
         self.path_to_safe_data = None
         self.path_to_network_file = None
+        self.view_name = None
         self.path_to_attribute_file = None
 
         self.graph = None
@@ -232,6 +233,8 @@ class SAFE:
         # Overwriting the global settings, if required
         if 'network_file' in kwargs:
             self.path_to_network_file = kwargs['network_file']
+        if 'view_name' in kwargs:
+            self.view_name = kwargs['view_name']
         if 'node_key_attribute' in kwargs:
             self.node_key_attribute = kwargs['node_key_attribute']
 
@@ -258,7 +261,8 @@ class SAFE:
                                                    node_key_attribute=self.node_key_attribute,
                                                    verbose=self.verbose)
             elif file_extension == '.cys':
-                self.graph = load_network_from_cys(self.path_to_network_file, verbose=self.verbose)
+                self.graph = load_network_from_cys(self.path_to_network_file, view_name=self.view_name,
+                                                   verbose=self.verbose)
 
         # Setting the node key for mapping attributes
         key_list = nx.get_node_attributes(self.graph, self.node_key_attribute)
@@ -349,6 +353,8 @@ class SAFE:
             for i in neighbors:
                 neighborhoods[i] = 1
 
+            self.node_distances = all_shortest_paths
+
         # Set diagonal to zero (a node is not part of its own neighborhood)
         # np.fill_diagonal(neighborhoods, 0)
 
@@ -372,6 +378,9 @@ class SAFE:
 
         if 'multiple_testing' in kwargs:
             self.multiple_testing = kwargs['multiple_testing']
+
+        if 'background' in kwargs:
+            self.background = kwargs['background']
 
         # Make sure that the settings are still valid
         self.validate_config()
@@ -611,7 +620,7 @@ class SAFE:
 
         # # A node belongs to the domain that contains the attribute
         # for which the node has the highest enrichment
-        # self.node2domain = node2es.groupby(level='domain', axis=1).max()
+        # self.node2domain = node2nes.groupby(level='domain', axis=1).max()
         # t_max = self.node2domain.loc[:, 1:].max(axis=1)
         # t_idxmax = self.node2domain.loc[:, 1:].idxmax(axis=1)
         # t_idxmax[t_max < -np.log10(self.enrichment_threshold)] = 0
@@ -658,6 +667,7 @@ class SAFE:
 
         self.attributes['domain'] = [renumber_dict[k] for k in self.attributes['domain']]
         self.node2domain['primary_domain'] = [renumber_dict[k] for k in self.node2domain['primary_domain']]
+        self.node2domain.drop(columns=to_remove)
 
         # Make labels for each domain
         domains = np.sort(self.attributes['domain'].unique())
@@ -671,6 +681,66 @@ class SAFE:
 
     def plot_network(self, background_color='#000000'):
         plot_network(self.graph, background_color=background_color)
+
+    def plot_composite_network_contours(self,
+                                        save_fig=None, clabels=False,
+                                        background_color='#000000'):
+
+        foreground_color = '#ffffff'
+        if background_color == '#ffffff':
+            foreground_color = '#000000'
+
+        domains = np.sort(self.attributes['domain'].unique())
+        # domains = self.domains.index.values
+
+        # Define colors per domain
+        domain2rgb = get_colors('hsv', len(domains))
+
+        # Store domain info
+        self.domains['rgba'] = domain2rgb.tolist()
+
+        # Get node coordinates
+        node_xy = get_node_coordinates(self.graph)
+
+        # Figure parameters
+        num_plots = 2
+
+        nrows = int(np.ceil(num_plots / 2))
+        ncols = np.min([num_plots, 2])
+        figsize = (10 * ncols, 10 * nrows)
+
+        [fig, axes] = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, sharex=True, sharey=True,
+                                   facecolor=background_color)
+        axes = axes.ravel()
+
+        # First, plot the network
+        ax = axes[0]
+        ax = plot_network(self.graph, ax=ax, background_color=background_color)
+
+        # Then, plot the composite network as contours
+
+        for n_domain, domain in enumerate(self.domains['label'].values):
+            nodes_indices = self.node2domain.loc[self.node2domain.loc[:, n_domain] > 0,].index.values
+            pos3 = node_xy[nodes_indices, :]
+
+            kernel = gaussian_kde(pos3.T)
+            [X, Y] = np.mgrid[np.min(pos3[:,0]):np.max(pos3[:,0]):100j, np.min(pos3[:,1]):np.max(pos3[:,1]):100j]
+            positions = np.vstack([X.ravel(), Y.ravel()])
+            Z = np.reshape(kernel(positions).T, X.shape)
+
+            C = ax[1].contour(X, Y, Z, [1e-6], colors=self.domains.loc[n_domain, 'rgba'], alpha=1)
+
+            if clabels:
+                C.levels = [n_domain + 1]
+                plt.clabel(C, C.levels, inline=True, fmt='%d', fontsize=16)
+                print('%d -- %s' % (n_domain + 1, domain))
+
+        fig.set_facecolor(background_color)
+
+        if save_fig:
+            path_to_fig = save_fig
+            print('Output path: %s' % path_to_fig)
+            plt.savefig(path_to_fig, facecolor=background_color)
 
     def plot_composite_network(self, show_each_domain=False, show_domain_ids=True,
                                save_fig=None, labels=[],
@@ -790,7 +860,7 @@ class SAFE:
     def plot_sample_attributes(self, attributes=1, top_attributes_only=False,
                                show_network=True,
                                show_costanzo2016=False, show_costanzo2016_colors=True, show_costanzo2016_clabels=False,
-                               show_raw_data=False, show_significant_nodes=False,
+                               show_nes=True, show_raw_data=False, show_significant_nodes=False,
                                show_colorbar=True, colors=['82add6', 'facb66'],
                                background_color='#000000',
                                labels=[],
@@ -846,36 +916,35 @@ class SAFE:
 
             ax = axes[idx_attribute+nax]
 
-            # Dynamically determine the min & max of the colorscale
-            if 'vmin' in kwargs:
-                vmin = kwargs['vmin']
-            else:
-                vmin = np.nanmin([np.log10(1 / self.num_permutations), np.nanmin(-np.abs(score[:, attribute]))])
-            if 'vmax' in kwargs:
-                vmax = kwargs['vmax']
-            else:
-                vmax = np.nanmax([-np.log10(1 / self.num_permutations), np.nanmax(np.abs(score[:, attribute]))])
-            if 'midrange' in kwargs:
-                midrange = kwargs['midrange']
-            else:
-                midrange = [np.log10(0.05), 0, -np.log10(0.05)]
+            if show_nes:
 
-            # Determine the order of points, such that the brightest ones are on top
-            idx = np.argsort(np.abs(score[:, attribute]))
+                # Dynamically determine the min & max of the colorscale
+                if 'vmin' in kwargs:
+                    vmin = kwargs['vmin']
+                else:
+                    vmin = np.nanmin([np.log10(1 / self.num_permutations), np.nanmin(-np.abs(score[:, attribute]))])
+                if 'vmax' in kwargs:
+                    vmax = kwargs['vmax']
+                else:
+                    vmax = np.nanmax([-np.log10(1 / self.num_permutations), np.nanmax(np.abs(score[:, attribute]))])
+                if 'midrange' in kwargs:
+                    midrange = kwargs['midrange']
+                else:
+                    midrange = [np.log10(0.05), 0, -np.log10(0.05)]
 
-            # Colormap
-            colors_hex = [colors[0], background_color, background_color, background_color, colors[1]]
-            colors_hex = [re.sub(r'^#', '', c) for c in colors_hex]
-            colors_rgb = [tuple(int(c[i:i+2], 16)/255 for i in (0, 2, 4)) for c in colors_hex]
+                # Determine the order of points, such that the brightest ones are on top
+                idx = np.argsort(np.abs(score[:, attribute]))
 
-            cmap = LinearSegmentedColormap.from_list('my_cmap', colors_rgb)
+                # Colormap
+                colors_hex = [colors[0], background_color, background_color, background_color, colors[1]]
+                colors_hex = [re.sub(r'^#', '', c) for c in colors_hex]
+                colors_rgb = [tuple(int(c[i:i+2], 16)/255 for i in (0, 2, 4)) for c in colors_hex]
 
-            sc = ax.scatter(node_xy[idx, 0], node_xy[idx, 1], c=score[idx, attribute], vmin=vmin, vmax=vmax,
-                            s=60, cmap=cmap, norm=MidpointRangeNormalize(midrange=midrange, vmin=vmin, vmax=vmax),
-                            edgecolors=None)
+                cmap = LinearSegmentedColormap.from_list('my_cmap', colors_rgb)
 
-            if idx_attribute+nax == 0:
-                ax.invert_yaxis()
+                sc = ax.scatter(node_xy[idx, 0], node_xy[idx, 1], c=score[idx, attribute], vmin=vmin, vmax=vmax,
+                                s=60, cmap=cmap, norm=MidpointRangeNormalize(midrange=midrange, vmin=vmin, vmax=vmax),
+                                edgecolors=None)
 
             if show_colorbar:
 
@@ -974,7 +1043,8 @@ class SAFE:
                     sn1 = ax.scatter(node_xy[idx, 0], node_xy[idx, 1], c='w', marker='+')
 
                 # Legend
-                leg = ax.legend([sn1], ['p < 0.05'], loc='upper left', bbox_to_anchor=(0, 1),
+                s = ('p < %.2e' % self.enrichment_threshold)
+                leg = ax.legend([sn1], [s], loc='upper left', bbox_to_anchor=(0, 1),
                                 title='Significance', scatterpoints=1, fancybox=False,
                                 facecolor=background_color, edgecolor=background_color)
 
@@ -1002,6 +1072,9 @@ class SAFE:
 
             ax.grid(False)
             ax.margins(0.1, 0.1)
+
+            if idx_attribute+nax == 0:
+                ax.invert_yaxis()
 
             title = self.attributes.loc[attribute, 'name']
 
