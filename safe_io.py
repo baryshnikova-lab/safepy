@@ -119,7 +119,7 @@ def load_network_from_mat(filename, verbose=True):
     return G
 
 
-def load_network_from_cys(filename, verbose=True):
+def load_network_from_cys(filename, view_name=None, verbose=True):
 
     filename = re.sub('~', expanduser('~'), filename)
 
@@ -136,12 +136,16 @@ def load_network_from_cys(filename, verbose=True):
     top_dirs = list(set([f.split('/')[0] for f in files]))
 
     # Get node positions (from the view)
-    viewfile = [f for f in files if '/views/' in f][0]
+    view_files = [f for f in files if '/views/' in f]
+    if view_name:
+        view_file = [v for v in view_files if v.endswith(view_name + '.xgmml')][0]
+    else:
+        view_file = view_files[0]
 
     if verbose:
-        print('Loading the first view: %s' % viewfile)
+        print('Loading the view: %s' % view_file)
 
-    mydoc = minidom.parse(viewfile)
+    mydoc = minidom.parse(view_file)
     nodes = mydoc.getElementsByTagName('node')
 
     node_labels = dict()
@@ -168,7 +172,10 @@ def load_network_from_cys(filename, verbose=True):
     edge_list = []
 
     for edge in edges:
-        edge_list.append((int(edge.attributes['source'].value), int(edge.attributes['target'].value)))
+        if 'source' not in edge.attributes.keys() or 'target' not in edge.attributes.keys():
+            pass
+        else:
+            edge_list.append((int(edge.attributes['source'].value), int(edge.attributes['target'].value)))
 
     # Build the graph
     G = nx.Graph()
