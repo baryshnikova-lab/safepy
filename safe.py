@@ -263,6 +263,10 @@ class SAFE:
             elif file_extension == '.cys':
                 self.graph = load_network_from_cys(self.path_to_network_file, view_name=self.view_name,
                                                    verbose=self.verbose)
+            elif file_extension == '.scatter':
+                self.graph = load_network_from_scatter(self.path_to_network_file,
+                                                       node_key_attribute=self.node_key_attribute,
+                                                       verbose=self.verbose)
 
         # Setting the node key for mapping attributes
         key_list = nx.get_node_attributes(self.graph, self.node_key_attribute)

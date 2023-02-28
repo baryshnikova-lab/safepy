@@ -236,6 +236,23 @@ def load_network_from_cys(filename, view_name=None, verbose=True):
     return G
 
 
+def load_network_from_scatter(filename, node_key_attribute='key', verbose=True):
+    filename = re.sub('~', expanduser('~'), filename)
+
+    if verbose:
+        print('Loading the file of node coordinates...')
+
+    scatter = pd.read_csv(filename, sep='\t')
+    scatter.columns = ['key', 'x', 'y', 'label']
+
+    list_of_tuples = [(x, y) for x, y in scatter.T.to_dict().items()]
+
+    G = nx.Graph()
+    G.add_nodes_from(list_of_tuples)
+
+    return G
+
+
 def apply_network_layout(G, layout='kamada_kawai', verbose=True):
 
     if layout == 'kamada_kawai':
