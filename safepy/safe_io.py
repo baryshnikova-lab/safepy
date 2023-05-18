@@ -87,9 +87,9 @@ def load_network_from_txt(filename, layout='spring_embedded', node_key_attribute
         raise ValueError('Unknown network file format. 3 or 5 columns are expected.')
 
     # Merge nodes1 and nodes2 and drop duplicates
-    nodes = data[['node_label1', 'node_key1']] \
-        .append(data[['node_label2', 'node_key2']].rename(columns={'node_label2': 'node_label1', 'node_key2': 'node_key1'})) \
-        .drop_duplicates()
+    t1 = data[['node_label1', 'node_key1']]
+    t2 = data[['node_label2', 'node_key2']].rename(columns={'node_label2': 'node_label1', 'node_key2': 'node_key1'})
+    nodes = pd.concat([t1, t2], ignore_index=True).drop_duplicates()
 
     # Re-number the node index
     nodes = nodes.reset_index(drop=True)
@@ -149,7 +149,7 @@ def load_network_from_mat(filename, verbose=True):
     return G
 
 
-def load_network_from_cys(filename, verbose=True):
+def load_network_from_cys(filename, view_name=None, verbose=True):
 
     filename = re.sub('~', expanduser('~'), filename)
 
@@ -166,12 +166,16 @@ def load_network_from_cys(filename, verbose=True):
     top_dirs = list(set([f.split('/')[0] for f in files]))
 
     # Get node positions (from the view)
-    viewfile = [f for f in files if '/views/' in f][0]
+    view_files = [f for f in files if '/views/' in f]
+    if view_name:
+        view_file = [v for v in view_files if v.endswith(view_name + '.xgmml')][0]
+    else:
+        view_file = view_files[0]
 
     if verbose:
-        logging.info('Loading the first view: %s' % viewfile)
+        logging.info('Loading the view: %s' % viewfile)
 
-    mydoc = minidom.parse(viewfile)
+    mydoc = minidom.parse(view_file)
     nodes = mydoc.getElementsByTagName('node')
 
     node_labels = dict()
@@ -198,7 +202,10 @@ def load_network_from_cys(filename, verbose=True):
     edge_list = []
 
     for edge in edges:
-        edge_list.append((int(edge.attributes['source'].value), int(edge.attributes['target'].value)))
+        if 'source' not in edge.attributes.keys() or 'target' not in edge.attributes.keys():
+            pass
+        else:
+            edge_list.append((int(edge.attributes['source'].value), int(edge.attributes['target'].value)))
 
     # Build the graph
     G = nx.Graph()
@@ -255,6 +262,23 @@ def load_network_from_cys(filename, verbose=True):
     # Remove unzipped files/directories
     for top_dir in top_dirs:
         shutil.rmtree(top_dir)
+
+    return G
+
+
+def load_network_from_scatter(filename, node_key_attribute='key', verbose=True):
+    filename = re.sub('~', expanduser('~'), filename)
+
+    if verbose:
+        print('Loading the file of node coordinates...')
+
+    scatter = pd.read_csv(filename, sep='\t')
+    scatter.columns = ['key', 'x', 'y', 'label']
+
+    list_of_tuples = [(x, y) for x, y in scatter.T.to_dict().items()]
+
+    G = nx.Graph()
+    G.add_nodes_from(list_of_tuples)
 
     return G
 

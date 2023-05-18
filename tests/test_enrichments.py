@@ -1,5 +1,5 @@
 import unittest
-
+import os
 import numpy as np
 
 import safe
@@ -15,7 +15,8 @@ class TestEnrichmentHypergeometric(unittest.TestCase):
         sf.define_neighborhoods()
 
         # Load the binary attributes
-        sf.load_attributes(attribute_file='/Users/abaryshnikova/Lab/Datasets/safe-data/attributes/go_bp_140819.txt.gz')
+        path_to_go = os.path.join(sf.path_to_safe_data, 'attributes/go_bp_140819.txt.gz')
+        sf.load_attributes(attribute_file=path_to_go)
 
         # Run the enrichment
         sf.compute_pvalues(multiple_testing=False)
@@ -62,7 +63,8 @@ class TestEnrichmentPermutations(unittest.TestCase):
         sf.define_neighborhoods()
 
         # Load the binary attributes
-        sf.load_attributes(attribute_file='/Users/abaryshnikova/Lab/Datasets/safe-data/attributes/hoepfner_movva_2014_doxorubucin.txt')
+        path_to_dox = os.path.join(sf.path_to_safe_data, 'attributes/hoepfner_movva_2014_doxorubucin.txt')
+        sf.load_attributes(attribute_file=path_to_dox)
 
         # Run the enrichment
         sf.compute_pvalues(num_permutations=1000, multiple_testing=False)
