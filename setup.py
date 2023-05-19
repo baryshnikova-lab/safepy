@@ -20,15 +20,7 @@ with open('README.md', 'r') as fh:
 
 ## dependencies/requirements
 requirements = {    
-'base':  """ipykernel>=5.1.0
-            networkx>=2.2
-            pandas>=0.23.4
-            statsmodels>=0.9.0
-            matplotlib>=2.0.1
-            scipy>=1.0.0
-            tqdm>=4.11.2
-            numpy>=1.14.1
-            xlrd >=1.1.0""".split('\n'),
+'base':  open('./extras/requirements.txt','r').read().split('\n'),
 }
 extras_require={k:l for k,l in requirements.items() if not k=='base'}
 ## all: extra except dev

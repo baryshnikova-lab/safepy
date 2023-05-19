@@ -17,7 +17,7 @@ SAFE requires Python 3 and a set of packages listed in `extras/requirements.txt`
 cd safepy/
 virtualenv -p python3 safepy_env
 source safepy_env/bin/activate
-pip install -r extras/requirements.txt
+pip install safepy
 ```
 
 After the installation is complete, it is useful to run a "hello world" SAFE analysis using the Jupyter notebook at `examples/Example_1_GI_network_doxorubicin.ipynb`. 
@@ -32,6 +32,12 @@ Then start jupyter, open `examples/Example_1_GI_network_doxorubicin.ipynb` and s
 
 ```
 jupyter-notebook
+```
+
+To import safepy package in the jupyter notebook:
+
+```
+from safepy import safe
 ```
 
 To run the examples, several common datasets will be required (e.g., the genetic interaction similarity network from Costanzo et al., 2016). These datasets are stored separately at <https://github.com/baryshnikova-lab/safe-data> (to avoid duplication with other SAFE-related repositories and packages). We recommend cloning the safe-data repository and storing it locally (e.g., at <path_to_safe-data_folder>). In addition, it is necessary to edit the SAFE settings file (at `safepy/safe_default.ini`) with the path to the `safe-data` folder.
@@ -49,8 +55,6 @@ It may also be useful to run a series of unit tests to verify that SAFE provides
 ```
 python3.6 -m unittest discover -v -s tests/
 ```
-
-
 
 HELP
 ====
