@@ -41,6 +41,7 @@ class SAFE:
 
     def __init__(self,
                  path_to_ini_file='',
+                 path_to_safe_data=None,
                  verbose=True):
         """
         Initiate a SAFE instance and define the main settings for analysis.
@@ -103,12 +104,12 @@ class SAFE:
         self.output_dir = ''
 
         # Read both default and user-defined settings
-        self.read_config(path_to_ini_file)
+        self.read_config(path_to_ini_file, path_to_safe_data=path_to_safe_data)
 
         # Validate config
         self.validate_config()
 
-    def read_config(self, path_to_ini_file):
+    def read_config(self, path_to_ini_file, path_to_safe_data=None):
 
         """
         Read the settings from an INI file and update the attributes in the SAFE class.
@@ -140,12 +141,14 @@ class SAFE:
 
         if 'Input files' not in config:
             config['Input files'] = {}
-
-        path_to_safe_data = config.get('Input files', 'safe_data')  # falls back on default if empty
+        if path_to_safe_data is None:
+            path_to_safe_data = config.get('Input files', 'safe_data')  # falls back on default if empty
+        
         path_to_network_file = config.get('Input files', 'networkfile')  # falls back on default if empty
         path_to_attribute_file = config.get('Input files', 'annotationfile')  # falls back on default if empty
 
         self.path_to_safe_data = path_to_safe_data
+        assert self.path_to_safe_data.endswith('/'), "path_to_safe_data should end with '/', else `os.path.join` may not provide desired output."
         self.path_to_network_file = os.path.join(path_to_safe_data, path_to_network_file)
         self.path_to_attribute_file = os.path.join(path_to_safe_data, path_to_attribute_file)
 
@@ -234,7 +237,11 @@ class SAFE:
 
         # Overwriting the global settings, if required
         if 'network_file' in kwargs:
-            self.path_to_network_file = kwargs['network_file']
+            if self.path_to_safe_data is None:
+                self.path_to_network_file = kwargs['network_file']
+            else:
+                self.path_to_network_file = os.path.join(self.path_to_safe_data, kwargs['network_file'])
+                assert os.path.exists(self.path_to_network_file) # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
         if 'view_name' in kwargs:
             self.view_name = kwargs['view_name']
         if 'node_key_attribute' in kwargs:
@@ -294,13 +301,18 @@ class SAFE:
         nx.write_gpickle(self.graph, output_file)
 
     def load_attributes(self, **kwargs):
-
+        """
+        Load the attributes i.e. features of the genes.
+        """
+        
         # Overwrite the global settings, if required
         if 'attribute_file' in kwargs:
-            self.path_to_attribute_file = kwargs['attribute_file']
-        else:
-            kwargs['attribute_file'] = self.path_to_attribute_file
-
+            if self.path_to_safe_data is None:
+                self.path_to_network_file = kwargs['attribute_file']
+            else:
+                self.path_to_network_file = os.path.join(self.path_to_safe_data, kwargs['attribute_file'])
+                assert os.path.exists(self.path_to_network_file) # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
+            
         # Make sure that the settings are still valid
         self.validate_config()
 
@@ -690,7 +702,12 @@ class SAFE:
     def plot_composite_network_contours(self,
                                         save_fig=None, clabels=False,
                                         background_color='#000000'):
-
+        """
+        Show the countours i.e. outlines for the categories of genes. 
+        
+        Parameters:
+            clabels (bool): 
+        """
         foreground_color = '#ffffff'
         if background_color == '#ffffff':
             foreground_color = '#000000'
@@ -749,9 +766,14 @@ class SAFE:
 
     def plot_composite_network(self, show_each_domain=False, show_domain_ids=True,
                                save_fig=None, labels=[],
+                               foreground_color = '#ffffff',
                                background_color='#000000'):
-
-        foreground_color = '#ffffff'
+        """
+        Show the domains i.e. categories of the genes.
+        
+        Parameters:
+            show_each_domain (bool): Show each domain on a separate plot (defaults to False). 
+        """
         if background_color == '#ffffff':
             foreground_color = '#000000'
 
@@ -818,7 +840,7 @@ class SAFE:
 
         # Plot the labels, if any
         if labels:
-            plot_labels(labels, self.graph, axes[1])
+            plot_labels(labels=labels, graph=self.graph, ax=axes[1])
 
         if show_domain_ids:
             for domain in domains[domains > 0]:
@@ -853,7 +875,7 @@ class SAFE:
 
                 # Plot the labels, if any
                 if labels:
-                    plot_labels(labels, self.graph, axes[1+domain])
+                    plot_labels(labels=labels, graph=self.graph, ax=axes[1+domain])
 
         fig.set_facecolor(background_color)
 
@@ -862,16 +884,24 @@ class SAFE:
             logging.info('Output path: %s' % path_to_fig)
             plt.savefig(path_to_fig, facecolor=background_color)
 
-    def plot_sample_attributes(self, attributes=1, top_attributes_only=False,
-                               show_network=True,
-                               show_costanzo2016=False, show_costanzo2016_colors=True, show_costanzo2016_clabels=False,
-                               show_nes=True, show_raw_data=False, show_significant_nodes=False,
-                               show_colorbar=True, colors=['82add6', 'facb66'],
-                               background_color='#000000',
-                               labels=[],
-                               save_fig=None, **kwargs):
-
-        foreground_color = '#ffffff'
+    def plot_sample_attributes(
+            self, attributes=1, top_attributes_only=False,
+            show_network=True,
+            show_costanzo2016=False, show_costanzo2016_colors=True, show_costanzo2016_clabels=False,
+            show_nes=True, show_raw_data=False, show_significant_nodes=False,
+            show_colorbar=True, colors=['82add6', 'facb66'],
+            foreground_color = '#ffffff',
+            background_color='#000000',
+            labels=[],
+            save_fig=None, **kwargs
+        ):
+        """
+        Show attributes i.e. features of the genes.
+        
+        Parameters:
+            attributes (int): number of .. (defaults to 1).
+            show_nes (bool): show .. (defaults to True).
+        """
         if background_color == '#ffffff':
             foreground_color = '#000000'
 
@@ -1040,37 +1070,46 @@ class SAFE:
                     leg_title = leg.get_title()
                     leg_title.set_color(foreground_color)
 
+            
             if show_significant_nodes:
-
+                ## show the significant nodes
                 with np.errstate(divide='ignore', invalid='ignore'):
-
+                    ## get the index of the points
                     idx = np.abs(self.nes_binary[:, attribute]) > 0
-                    sn1 = ax.scatter(node_xy[idx, 0], node_xy[idx, 1], c='w', marker='+')
-
-                # Legend
-                s = ('p < %.2e' % self.enrichment_threshold)
-                leg = ax.legend([sn1], [s], loc='upper left', bbox_to_anchor=(0, 1),
-                                title='Significance', scatterpoints=1, fancybox=False,
-                                facecolor=background_color, edgecolor=background_color)
-
-                for leg_txt in leg.get_texts():
-                    leg_txt.set_color(foreground_color)
-
-                leg_title = leg.get_title()
-                leg_title.set_color(foreground_color)
-
+                mark_nodes(ax,
+                           node_xy[idx, 0],
+                           node_xy[idx, 1],
+                           legend_label = ('p < %.2e' % self.enrichment_threshold),
+                           foreground_color=foreground_color,
+                           background_color=background_color,
+                           marker='+',
+                          )
+                
+            if not show_nodes_list is None:
+                ## get the coordinates of the points
+                node_xy_labels=get_node_coordinates(graph=graph,labels=show_nodes_list)
+                ## mark the nodes
+                mark_nodes(ax,
+                           node_xy_labels[idx, 0],
+                           node_xy_labels[idx, 1],
+                           foreground_color=foreground_color,
+                           background_color=background_color,
+                          )
+                
+            
             if show_costanzo2016:
                 plot_costanzo2016_network_annotations(self.graph, ax, self.path_to_safe_data,
                                                       colors=show_costanzo2016_colors,
                                                       clabels=show_costanzo2016_clabels,
                                                       background_color=background_color)
-
+            
+            
             # Plot a circle around the network
             plot_network_contour(self.graph, ax, background_color=background_color)
 
             # Plot the labels, if any
             if labels:
-                plot_labels(labels, self.graph, ax)
+                mark_nodes(labels=labels, grapth=self.graph, ax=ax)
 
             ax.set_aspect('equal')
             ax.set_facecolor(background_color)

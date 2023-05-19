@@ -509,10 +509,12 @@ def plot_network_contour(graph, ax, background_color='#000000'):
     return xf, yf, rf
 
 
-def plot_costanzo2016_network_annotations(graph, ax, path_to_data, colors=True, clabels=False,
-                                          background_color='#000000'):
+def plot_costanzo2016_network_annotations(
+    graph, ax, path_to_data, colors=True, clabels=False,
+    foreground_color = '#ffffff',
+    background_color='#000000',
+    ):
 
-    foreground_color = '#ffffff'
     if background_color == '#ffffff':
         foreground_color = '#000000'
 
@@ -561,47 +563,83 @@ def plot_costanzo2016_network_annotations(graph, ax, path_to_data, colors=True, 
             plt.clabel(C, C.levels, inline=True, fmt='%d', fontsize=16)
             logging.info('%d -- %s' % (n_process+1, process))
 
+def mark_nodes(ax,
+               x,y,
+               kind,
+               foreground_color,
+               background_color,
+               labels=None, # subset the nodes by labels
+               legend_label: str=None,
+              **kws,
+              ):
+    """
+    Show nodes.
 
-def plot_labels(labels, graph, ax):
+    Parameters:
+        s (str): legend name (defaults to '').
+        kind (str): 'scatter' if the nodes should be marked, 'label' if nodes should be marked and labeled.
+    """            
+    ## mark the selected nodes with the marker +
+    sn1 = ax.scatter(x, y, c='w', **kws)
 
-    node_labels = nx.get_node_attributes(graph, 'label')
-    node_labels_dict = {k: v for v, k in node_labels.items()}
+    if kind=='label':
+        # ax.plot(x, y, 'r*')
+        for i in np.arange(len(idx)):
+            ax.text(x[i], y[i], labels[i], fontdict={'color': 'white', 'size': 14, 'weight': 'bold'},
+                    bbox={'facecolor': 'black', 'alpha': 0.5, 'pad': 3},
+                    horizontalalignment='center', verticalalignment='center')
 
-    x = list(dict(graph.nodes.data('x')).values())
-    y = list(dict(graph.nodes.data('y')).values())
+    if not legend_label is None:
+        # Legend
+        leg = ax.legend([sn1], [legend_label], loc='upper left', bbox_to_anchor=(0, 1),
+                        title='Significance', scatterpoints=1, fancybox=False,
+                        facecolor=background_color, edgecolor=background_color)
 
-    # x_offset = (np.nanmax(x) - np.nanmin(x))*0.01
+        for leg_txt in leg.get_texts():
+            leg_txt.set_color(foreground_color)
 
-    idx = [node_labels_dict[x] for x in labels if x in node_labels_dict.keys()]
-    labels_idx = [x for x in labels if x in node_labels_dict.keys()]
-    x_idx = [x[i] for i in idx]
-    y_idx = [y[i] for i in idx]
+        leg_title = leg.get_title()
+        leg_title.set_color(foreground_color)
+        
+    return ax
 
-    # ax.plot(x_idx, y_idx, 'r*')
-    for i in np.arange(len(idx)):
-        ax.text(x_idx[i], y_idx[i], labels_idx[i], fontdict={'color': 'white', 'size': 14, 'weight': 'bold'},
-                bbox={'facecolor': 'black', 'alpha': 0.5, 'pad': 3},
-                horizontalalignment='center', verticalalignment='center')
-
-    # print out labels not found
-    labels_missing = [x for x in labels if x not in node_labels_dict.keys()]
-    if labels_missing:
-        labels_missing_str = ', '.join(labels_missing)
-        logging.info('These labels are missing from the network (case sensitive): %s' % labels_missing_str)
-
-
-def get_node_coordinates(graph):
+def get_node_coordinates(graph,labels):
 
     x = dict(graph.nodes.data('x'))
-    y = dict(graph.nodes.data('y'))
+    y = dict(graph.nodes.data('y'))    
 
     ds = [x, y]
     pos = {}
     for k in x:
         pos[k] = np.array([d[k] for d in ds])
 
-    node_xy = np.vstack(list(pos.values()))
+    node_xy_list=list(pos.values())
+    
+    if not labels is None:
+        ## get the co-ordinates of the nodes
+        node_labels = nx.get_node_attributes(graph, 'label')
+        node_labels_dict = {k: v for v, k in node_labels.items()}
 
+        x = list(dict(graph.nodes.data('x')).values())
+        y = list(dict(graph.nodes.data('y')).values())
+
+        # x_offset = (np.nanmax(x) - np.nanmin(x))*0.01
+
+        idx = [node_labels_dict[x] for x in labels if x in node_labels_dict.keys()]
+        labels_idx = [x for x in labels if x in node_labels_dict.keys()]
+        x_idx = [x[i] for i in idx]
+        y_idx = [y[i] for i in idx]
+        
+        
+        # print out labels not found
+        labels_missing = [x for x in labels if x not in node_labels_dict.keys()]
+        if labels_missing:
+            labels_missing_str = ', '.join(labels_missing)
+            logging.warning('These labels are missing from the network (case sensitive): %s' % labels_missing_str)    
+        
+        node_xy_list=[x_idx,y_idx]
+        
+    node_xy = np.vstack(node_xy_list)
     return node_xy
 
 
