@@ -241,7 +241,8 @@ class SAFE:
                 self.path_to_network_file = kwargs['network_file']
             else:
                 self.path_to_network_file = os.path.join(self.path_to_safe_data, kwargs['network_file'])
-                assert os.path.exists(self.path_to_network_file) # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
+        del kwargs['network_file'] ## remove the redundant/old path
+        assert os.path.exists(self.path_to_network_file) # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
         if 'view_name' in kwargs:
             self.view_name = kwargs['view_name']
         if 'node_key_attribute' in kwargs:
@@ -303,15 +304,19 @@ class SAFE:
     def load_attributes(self, **kwargs):
         """
         Load the attributes i.e. features of the genes.
+        
+        Keyword arguments:
+            kwargs: parameters provided to `load_attributes` function.
         """
         
         # Overwrite the global settings, if required
         if 'attribute_file' in kwargs:
             if self.path_to_safe_data is None:
-                self.path_to_network_file = kwargs['attribute_file']
+                self.path_to_attribute_file = kwargs['attribute_file']
             else:
-                self.path_to_network_file = os.path.join(self.path_to_safe_data, kwargs['attribute_file'])
-                assert os.path.exists(self.path_to_network_file) # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
+                self.path_to_attribute_file = os.path.join(self.path_to_safe_data, kwargs['attribute_file'])
+        del kwargs['attribute_file'] ## remove the redundant/old path
+        assert os.path.exists(self.path_to_attribute_file) # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
             
         # Make sure that the settings are still valid
         self.validate_config()
@@ -322,10 +327,14 @@ class SAFE:
             logging.info('Loading attributes from %s' % self.path_to_attribute_file)
 
         [self.attributes, _, self.node2attribute] = load_attributes(node_label_order=node_label_order,
-                                                                    verbose=self.verbose, **kwargs)
+                                                                    verbose=self.verbose, 
+                                                                    attribute_file=self.path_to_attribute_file, 
+                                                                    **kwargs)
 
     def define_neighborhoods(self, **kwargs):
-
+        """
+        
+        """
         # Overwriting the global settings, if required
         if 'node_distance_metric' in kwargs:
             self.node_distance_metric = kwargs['node_distance_metric']
@@ -696,11 +705,41 @@ class SAFE:
             logging.info('Removed %d domains because they were the top choice for less than %d neighborhoods.'
                   % (len(to_remove), self.attribute_enrichment_min_size))
 
-    def plot_network(self, background_color='#000000'):
-        plot_network(self.graph, background_color=background_color)
-
+    def plot_network(self, 
+                     foreground_color = '#ffffff',
+                     background_color='#000000',
+                     labels=[],
+                     **kwargs_mark_nodes,
+                    ):
+        """
+        Plot the base network.
+        
+        Parameters:
+            labels (list): the genes to show on the network.
+        
+        Keyword parameters:
+            kwargs_mark_nodes: parameters provided to `mark_nodes` function.
+        """
+        ax=plot_network(self.graph, background_color=background_color)
+        # Plot the labels, if any
+        if len(labels)!=0:
+            ## get the coordinates of the points
+            node_xy_labels,labels_found=get_node_coordinates(graph=self.graph,labels=labels)
+            ## mark the nodes
+            ax=mark_nodes(
+                       x=node_xy_labels[:, 0],
+                       y=node_xy_labels[:, 1],
+                       labels=labels_found,
+                       ax=ax,
+                       foreground_color=foreground_color,
+                       background_color=background_color,
+                       **kwargs_mark_nodes,
+                      )
+        return ax
+    
     def plot_composite_network_contours(self,
                                         save_fig=None, clabels=False,
+                                        foreground_color = '#ffffff',
                                         background_color='#000000'):
         """
         Show the countours i.e. outlines for the categories of genes. 
@@ -708,7 +747,6 @@ class SAFE:
         Parameters:
             clabels (bool): 
         """
-        foreground_color = '#ffffff'
         if background_color == '#ffffff':
             foreground_color = '#000000'
 
@@ -839,9 +877,20 @@ class SAFE:
         plot_network_contour(self.graph, axes[1], background_color=background_color)
 
         # Plot the labels, if any
-        if labels:
-            plot_labels(labels=labels, graph=self.graph, ax=axes[1])
-
+        if len(labels)!=0:
+            ## get the coordinates of the points
+            node_xy_labels,labels_found=get_node_coordinates(graph=self.graph,labels=labels)
+            ## mark the nodes
+            ax=mark_nodes(
+                       x=node_xy_labels[:, 0],
+                       y=node_xy_labels[:, 1],
+                       kind=['label'],
+                       labels=labels_found,
+                       ax=axes[1],
+                       foreground_color=foreground_color,
+                       background_color=background_color,
+                      )
+            
         if show_domain_ids:
             for domain in domains[domains > 0]:
                 idx = self.node2domain['primary_domain'] == domain
@@ -874,9 +923,19 @@ class SAFE:
                 plot_network_contour(self.graph, axes[1+domain], background_color=background_color)
 
                 # Plot the labels, if any
-                if labels:
-                    plot_labels(labels=labels, graph=self.graph, ax=axes[1+domain])
-
+                if len(labels)!=0:
+                    ## get the coordinates of the points
+                    node_xy_labels,labels_found=get_node_coordinates(graph=self.graph,labels=labels)
+                    ## mark the nodes
+                    ax=mark_nodes(
+                               x=node_xy_labels[:, 0],
+                               y=node_xy_labels[:, 1],
+                               labels=labels_found,
+                               kind=['label'],
+                               ax=axes[1+domain],
+                               foreground_color=foreground_color,
+                               background_color=background_color,
+                              )
         fig.set_facecolor(background_color)
 
         if save_fig:
@@ -892,7 +951,7 @@ class SAFE:
             show_colorbar=True, colors=['82add6', 'facb66'],
             foreground_color = '#ffffff',
             background_color='#000000',
-            labels=[],
+            labels: list=[],
             save_fig=None, **kwargs
         ):
         """
@@ -901,6 +960,7 @@ class SAFE:
         Parameters:
             attributes (int): number of .. (defaults to 1).
             show_nes (bool): show .. (defaults to True).
+            labels (list): show labels (defaults to []).
         """
         if background_color == '#ffffff':
             foreground_color = '#000000'
@@ -1076,26 +1136,16 @@ class SAFE:
                 with np.errstate(divide='ignore', invalid='ignore'):
                     ## get the index of the points
                     idx = np.abs(self.nes_binary[:, attribute]) > 0
-                mark_nodes(ax,
+                mark_nodes(
                            node_xy[idx, 0],
                            node_xy[idx, 1],
+                           kind=['mark'],
+                           ax=ax,
                            legend_label = ('p < %.2e' % self.enrichment_threshold),
                            foreground_color=foreground_color,
                            background_color=background_color,
                            marker='+',
-                          )
-                
-            if not show_nodes_list is None:
-                ## get the coordinates of the points
-                node_xy_labels=get_node_coordinates(graph=graph,labels=show_nodes_list)
-                ## mark the nodes
-                mark_nodes(ax,
-                           node_xy_labels[idx, 0],
-                           node_xy_labels[idx, 1],
-                           foreground_color=foreground_color,
-                           background_color=background_color,
-                          )
-                
+                          )                
             
             if show_costanzo2016:
                 plot_costanzo2016_network_annotations(self.graph, ax, self.path_to_safe_data,
@@ -1108,8 +1158,19 @@ class SAFE:
             plot_network_contour(self.graph, ax, background_color=background_color)
 
             # Plot the labels, if any
-            if labels:
-                mark_nodes(labels=labels, grapth=self.graph, ax=ax)
+            if len(labels)!=0:
+                ## get the coordinates of the points
+                node_xy_labels,labels_found=get_node_coordinates(graph=graph,labels=labels)
+                ## mark the nodes
+                ax=mark_nodes(
+                           x=node_xy_labels[:, 0],
+                           y=node_xy_labels[:, 1],
+                           kind=['label'],
+                           labels=labels_found,
+                           ax=ax,
+                           foreground_color=foreground_color,
+                           background_color=background_color,
+                          )
 
             ax.set_aspect('equal')
             ax.set_facecolor(background_color)

@@ -44,6 +44,7 @@ def load_network_from_txt(filename, layout='spring_embedded', node_key_attribute
             first_line = f.readline()
             num_cols = len(first_line.split('\t'))
     else:
+        ## extract the file
         import gzip
         with gzip.open(filename,'rt') as f:
             first_line = f.readline()
@@ -54,7 +55,7 @@ def load_network_from_txt(filename, layout='spring_embedded', node_key_attribute
         kws_read_table=dict(header=None,
                             # names=None,
                            )
-    if Path(filename).suffixes[0]=='.tsv':
+    elif Path(filename).suffixes[0]=='.tsv':
         kws_read_table=dict(
                             header=0, # column names in the first line
                             names=range(num_cols),
@@ -563,29 +564,41 @@ def plot_costanzo2016_network_annotations(
             plt.clabel(C, C.levels, inline=True, fmt='%d', fontsize=16)
             logging.info('%d -- %s' % (n_process+1, process))
 
-def mark_nodes(ax,
-               x,y,
-               kind,
-               foreground_color,
-               background_color,
-               labels=None, # subset the nodes by labels
-               legend_label: str=None,
-              **kws,
-              ):
+def mark_nodes(
+    x,
+    y,
+    kind: list,
+    ax=None,
+    foreground_color='#ffffff',
+    background_color='#000000',
+    labels=None, # subset the nodes by labels
+    legend_label: str=None,
+    test=False,
+    **kws,
+    ):
     """
     Show nodes.
 
     Parameters:
         s (str): legend name (defaults to '').
         kind (str): 'scatter' if the nodes should be marked, 'label' if nodes should be marked and labeled.
-    """            
-    ## mark the selected nodes with the marker +
-    sn1 = ax.scatter(x, y, c='w', **kws)
+    """
+    if ax is None:
+        ax=plt.gca() ## get current axes i.e. subplot
+    if isinstance(kind, str):
+        kind=[kind]
+        
+    if 'mark' in kind: 
+        ## mark the selected nodes with the marker +
+        sn1 = ax.scatter(x, y, c='w', **kws)
 
-    if kind=='label':
-        # ax.plot(x, y, 'r*')
-        for i in np.arange(len(idx)):
-            ax.text(x[i], y[i], labels[i], fontdict={'color': 'white', 'size': 14, 'weight': 'bold'},
+    if 'label' in kind:
+        ## show labels e.g. gene names
+        if test:print(x,y,labels)
+        assert len(x)==len(labels), f"len(x)!=len(labels): {len(x)}!={len(labels)}"
+        if test:ax.plot(x, y, 'r*')
+        for i,label in enumerate(labels):
+            ax.text(x[i], y[i], label, fontdict={'color': 'white', 'size': 14, 'weight': 'bold'},
                     bbox={'facecolor': 'black', 'alpha': 0.5, 'pad': 3},
                     horizontalalignment='center', verticalalignment='center')
 
@@ -603,7 +616,7 @@ def mark_nodes(ax,
         
     return ax
 
-def get_node_coordinates(graph,labels):
+def get_node_coordinates(graph,labels=[]):
 
     x = dict(graph.nodes.data('x'))
     y = dict(graph.nodes.data('y'))    
@@ -614,19 +627,23 @@ def get_node_coordinates(graph,labels):
         pos[k] = np.array([d[k] for d in ds])
 
     node_xy_list=list(pos.values())
-    
-    if not labels is None:
+
+    if len(labels)==0:
+        return  np.vstack(node_xy_list)    
+    else:
         ## get the co-ordinates of the nodes
         node_labels = nx.get_node_attributes(graph, 'label')
         node_labels_dict = {k: v for v, k in node_labels.items()}
-
+        
+        ## TODOs: avoid determining the x and y again.
         x = list(dict(graph.nodes.data('x')).values())
         y = list(dict(graph.nodes.data('y')).values())
 
         # x_offset = (np.nanmax(x) - np.nanmin(x))*0.01
 
         idx = [node_labels_dict[x] for x in labels if x in node_labels_dict.keys()]
-        labels_idx = [x for x in labels if x in node_labels_dict.keys()]
+        ## labels found in the data
+        labels_found = [x for x in labels if x in node_labels_dict.keys()]
         x_idx = [x[i] for i in idx]
         y_idx = [y[i] for i in idx]
         
@@ -639,9 +656,7 @@ def get_node_coordinates(graph,labels):
         
         node_xy_list=[x_idx,y_idx]
         
-    node_xy = np.vstack(node_xy_list)
-    return node_xy
-
+        return  np.vstack(node_xy_list).T, labels_found
 
 def load_mat(filename):
     """
