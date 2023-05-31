@@ -2,8 +2,7 @@ import unittest
 import os
 import networkx as nx
 
-import safe
-import safe_io
+from safepy import safe, safe_io
 
 
 class TestImportCys(unittest.TestCase):
