@@ -11,14 +11,18 @@ SAFE was originally implemented in MATLAB and stored at  <https://bitbucket.org/
 GETTING STARTED
 ===============
 
+### Installation  
+
 SAFE requires Python 3 and a set of packages listed in `extras/requirements.txt`. We recommend setting up a virtual environment and installing all the required packages via pip:
 
 ```
 cd safepy/
 virtualenv -p python3 safepy_env
 source safepy_env/bin/activate
-pip install safepy
+pip install git+https://github.com/baryshnikova-lab/safepy.git@package ## To do: remove @package suffix if the PR is accepted
 ```
+
+### Usage  
 
 After the installation is complete, it is useful to run a "hello world" SAFE analysis using the Jupyter notebook at `examples/Example_1_GI_network_doxorubicin.ipynb`. 
 
@@ -50,10 +54,17 @@ safe_data = <path_to_safe-data_folder>
 ...
 ```
 
+### Testing  
+
 It may also be useful to run a series of unit tests to verify that SAFE provides the correct outputs for default inputs. Tests are progressively being written and added to the repository. To run all the existing tests (from the `safepy` folder):
 
 ```
-python3.6 -m unittest discover -v -s tests/
+git -b package clone https://github.com/baryshnikova-lab/safepy.git ## To do: remove '-b package' if the PR is accepted
+git clone https://github.com/baryshnikova-lab/safe-data.git
+cd safepy/
+pip install -e . ## install the package in developer mode
+cd tests/
+python -m unittest discover -v -s .
 ```
 
 HELP
