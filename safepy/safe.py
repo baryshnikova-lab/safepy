@@ -242,7 +242,7 @@ class SAFE:
             else:
                 self.path_to_network_file = os.path.join(self.path_to_safe_data, kwargs['network_file'])
             del kwargs['network_file'] ## remove the redundant/old path
-        assert os.path.exists(self.path_to_network_file) # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
+        assert os.path.exists(self.path_to_network_file), self.path_to_network_file # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
         if 'view_name' in kwargs:
             self.view_name = kwargs['view_name']
         if 'node_key_attribute' in kwargs:
@@ -319,7 +319,7 @@ class SAFE:
                 raise ValueError(type(kwargs['attribute_file']))     
             del kwargs['attribute_file'] ## remove the redundant/old path
         if isinstance(self.path_to_attribute_file,str):
-            assert os.path.exists(self.path_to_attribute_file) # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
+            assert os.path.exists(self.path_to_attribute_file), self.path_to_attribute_file # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
             
         # Make sure that the settings are still valid
         self.validate_config()
