@@ -581,7 +581,7 @@ def mark_nodes(
 
     Parameters:
         s (str): legend name (defaults to '').
-        kind (str): 'scatter' if the nodes should be marked, 'label' if nodes should be marked and labeled.
+        kind (str): 'mark' if the nodes should be marked, 'label' if nodes should be marked and labeled.
     """
     if ax is None:
         ax=plt.gca() ## get current axes i.e. subplot

@@ -311,12 +311,15 @@ class SAFE:
         
         # Overwrite the global settings, if required
         if 'attribute_file' in kwargs:
-            if self.path_to_safe_data is None:
+            if self.path_to_safe_data is None or isinstance(kwargs['attribute_file'],pd.DataFrame):
                 self.path_to_attribute_file = kwargs['attribute_file']
-            else:
+            elif isinstance(kwargs['attribute_file'],str):
                 self.path_to_attribute_file = os.path.join(self.path_to_safe_data, kwargs['attribute_file'])
+            else:
+                raise ValueError(type(kwargs['attribute_file']))     
             del kwargs['attribute_file'] ## remove the redundant/old path
-        assert os.path.exists(self.path_to_attribute_file) # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
+        if isinstance(self.path_to_attribute_file,str):
+            assert os.path.exists(self.path_to_attribute_file) # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
             
         # Make sure that the settings are still valid
         self.validate_config()
@@ -1262,7 +1265,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Load the attribute file
-    [attributes, node_label_order, node2attribute] = load_attributes(args.path_to_attribute_file)
+    [attributes, node_label_order, node2attribute] = read_attributes(args.path_to_attribute_file)
 
     nr_processes = mp.cpu_count()
     nr_attributes = attributes.shape[0]
