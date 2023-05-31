@@ -241,7 +241,7 @@ class SAFE:
                 self.path_to_network_file = kwargs['network_file']
             else:
                 self.path_to_network_file = os.path.join(self.path_to_safe_data, kwargs['network_file'])
-        del kwargs['network_file'] ## remove the redundant/old path
+            del kwargs['network_file'] ## remove the redundant/old path
         assert os.path.exists(self.path_to_network_file) # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
         if 'view_name' in kwargs:
             self.view_name = kwargs['view_name']
@@ -303,7 +303,7 @@ class SAFE:
 
     def load_attributes(self, **kwargs):
         """
-        Load the attributes i.e. features of the genes.
+        Preprocess and load the attributes i.e. features of the genes.
         
         Keyword arguments:
             kwargs: parameters provided to `load_attributes` function.
@@ -315,7 +315,7 @@ class SAFE:
                 self.path_to_attribute_file = kwargs['attribute_file']
             else:
                 self.path_to_attribute_file = os.path.join(self.path_to_safe_data, kwargs['attribute_file'])
-        del kwargs['attribute_file'] ## remove the redundant/old path
+            del kwargs['attribute_file'] ## remove the redundant/old path
         assert os.path.exists(self.path_to_attribute_file) # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
             
         # Make sure that the settings are still valid
@@ -326,7 +326,7 @@ class SAFE:
         if self.verbose and isinstance(self.path_to_attribute_file, str):
             logging.info('Loading attributes from %s' % self.path_to_attribute_file)
 
-        [self.attributes, _, self.node2attribute] = load_attributes(node_label_order=node_label_order,
+        [self.attributes, _, self.node2attribute] = read_attributes(node_label_order=node_label_order,
                                                                     verbose=self.verbose, 
                                                                     attribute_file=self.path_to_attribute_file, 
                                                                     **kwargs)

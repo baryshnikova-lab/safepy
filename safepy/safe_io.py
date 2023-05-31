@@ -332,7 +332,7 @@ def calculate_edge_lengths(G, verbose=True):
     return G
 
 
-def load_attributes(attribute_file='', node_label_order=None, mask_duplicates=False, fill_value=np.nan, verbose=True):
+def read_attributes(attribute_file='', node_label_order=None, mask_duplicates=False, fill_value=np.nan, verbose=True):
 
     node2attribute = pd.DataFrame()
     attributes = pd.DataFrame()
