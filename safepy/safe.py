@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+"""This file contains the code for the SAFE class and command-line access."""
 
 import configparser
 import os
@@ -1163,7 +1164,7 @@ class SAFE:
             # Plot the labels, if any
             if len(labels)!=0:
                 ## get the coordinates of the points
-                node_xy_labels,labels_found=get_node_coordinates(graph=graph,labels=labels)
+                node_xy_labels,labels_found=get_node_coordinates(graph=self.graph,labels=labels)
                 ## mark the nodes
                 ax=mark_nodes(
                            x=node_xy_labels[:, 0],

@@ -1,3 +1,4 @@
+"""This file contains the code for the SAFE class and command-line access."""
 import re
 import os
 from pathlib import Path
