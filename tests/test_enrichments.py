@@ -16,7 +16,7 @@ class TestEnrichmentHypergeometric(unittest.TestCase):
 
         # Load the binary attributes
         # path_to_go = os.path.join(sf.path_to_safe_data, 'attributes/go_bp_140819.txt.gz')
-        path_to_go='attributes/go_bp_140819.txt.gz'
+        path_to_go = 'attributes/go_bp_140819.txt.gz'
         sf.load_attributes(attribute_file=path_to_go)
 
         # Run the enrichment

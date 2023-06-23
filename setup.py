@@ -11,24 +11,27 @@
 
 import sys
 if (sys.version_info[0]) != (3):
-     raise RuntimeError('Python 3 required ')
+    raise RuntimeError('Python 3 required ')
 
 import setuptools
 
 with open('README.md', 'r') as fh:
     long_description = fh.read()
 
-## dependencies/requirements
-requirements = {    
-'base':  open('./extras/requirements.txt','r').read().split('\n'),
+# Dependencies/requirements
+requirements = {
+    'base':  open('./extras/requirements.txt','r').read().split('\n'),
 }
-extras_require={k:l for k,l in requirements.items() if not k=='base'}
-## all: extra except dev
-extras_require['all']=[l for k,l in extras_require.items() if not k=='dev']
-### flatten
-extras_require['all']=[s for l in extras_require['all'] for s in l]
-### unique
-extras_require['all']=list(set(extras_require['all']))
+extras_require = {k: l for k, l in requirements.items() if not k == 'base'}
+
+# All: extra except dev
+extras_require['all'] = [l for k, l in extras_require.items() if not k == 'dev']
+
+# Flatten
+extras_require['all'] = [s for l in extras_require['all'] for s in l]
+
+# Unique
+extras_require['all'] = list(set(extras_require['all']))
 
 setuptools.setup(
     name='safepy',
@@ -53,7 +56,7 @@ setuptools.setup(
     install_requires=requirements['base'],
     extras_require=extras_require,
     entry_points={
-    'console_scripts': ['safepy = safepy.run:parser.dispatch',],
-    },    
+        'console_scripts': ['safepy = safepy.run:parser.dispatch', ],
+    },
     python_requires='>=3.7, <4',
 )

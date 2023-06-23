@@ -514,9 +514,7 @@ def plot_network_contour(graph, ax, background_color='#000000'):
 
 def plot_costanzo2016_network_annotations(
     graph, ax, path_to_data, colors=True, clabels=False,
-    foreground_color = '#ffffff',
-    background_color='#000000',
-    ):
+    foreground_color='#ffffff', background_color='#000000'):
 
     if background_color == '#ffffff':
         foreground_color = '#000000'
@@ -566,6 +564,7 @@ def plot_costanzo2016_network_annotations(
             plt.clabel(C, C.levels, inline=True, fmt='%d', fontsize=16)
             logging.info('%d -- %s' % (n_process+1, process))
 
+
 def mark_nodes(
     x,
     y,
@@ -586,20 +585,20 @@ def mark_nodes(
         kind (str): 'mark' if the nodes should be marked, 'label' if nodes should be marked and labeled.
     """
     if ax is None:
-        ax=plt.gca() ## get current axes i.e. subplot
+        ax = plt.gca() # get current axes i.e. subplot
     if isinstance(kind, str):
-        kind=[kind]
+        kind = [kind]
         
     if 'mark' in kind: 
-        ## mark the selected nodes with the marker +
+        # Mark the selected nodes with the marker +
         sn1 = ax.scatter(x, y, c='w', **kws)
 
     if 'label' in kind:
-        ## show labels e.g. gene names
-        if test:print(x,y,labels)
-        assert len(x)==len(labels), f"len(x)!=len(labels): {len(x)}!={len(labels)}"
-        if test:ax.plot(x, y, 'r*')
-        for i,label in enumerate(labels):
+        # Show labels e.g. gene names
+        if test: print(x, y, labels)
+        assert len(x) == len(labels), f"len(x)!=len(labels): {len(x)}!={len(labels)}"
+        if test: ax.plot(x, y, 'r*')
+        for i, label in enumerate(labels):
             ax.text(x[i], y[i], label, fontdict={'color': 'white', 'size': 14, 'weight': 'bold'},
                     bbox={'facecolor': 'black', 'alpha': 0.5, 'pad': 3},
                     horizontalalignment='center', verticalalignment='center')
@@ -618,6 +617,7 @@ def mark_nodes(
         
     return ax
 
+
 def get_node_coordinates(graph,labels=[]):
 
     x = dict(graph.nodes.data('x'))
@@ -633,24 +633,25 @@ def get_node_coordinates(graph,labels=[]):
     if len(labels)==0:
         return  np.vstack(node_xy_list)    
     else:
-        ## get the co-ordinates of the nodes
+
+        # Get the co-ordinates of the nodes
         node_labels = nx.get_node_attributes(graph, 'label')
         node_labels_dict = {k: v for v, k in node_labels.items()}
         
-        ## TODOs: avoid determining the x and y again.
+        # TODOs: avoid determining the x and y again.
         x = list(dict(graph.nodes.data('x')).values())
         y = list(dict(graph.nodes.data('y')).values())
 
         # x_offset = (np.nanmax(x) - np.nanmin(x))*0.01
 
         idx = [node_labels_dict[x] for x in labels if x in node_labels_dict.keys()]
-        ## labels found in the data
+
+        # Labels found in the data
         labels_found = [x for x in labels if x in node_labels_dict.keys()]
         x_idx = [x[i] for i in idx]
         y_idx = [y[i] for i in idx]
-        
-        
-        # print out labels not found
+
+        # Print out labels not found
         labels_missing = [x for x in labels if x not in node_labels_dict.keys()]
         if labels_missing:
             labels_missing_str = ', '.join(labels_missing)
@@ -658,7 +659,8 @@ def get_node_coordinates(graph,labels=[]):
         
         node_xy_list=[x_idx,y_idx]
         
-        return  np.vstack(node_xy_list).T, labels_found
+        return np.vstack(node_xy_list).T, labels_found
+
 
 def load_mat(filename):
     """

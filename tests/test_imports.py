@@ -41,7 +41,7 @@ class TestImportAttributes(unittest.TestCase):
         sf.load_network()
 
         # path_to_dup = os.path.join(sf.path_to_safe_data, 'tests/attribute_file_with_unmatched_duplicated_labels.txt')
-        path_to_dup='tests/attribute_file_with_unmatched_duplicated_labels.txt'
+        path_to_dup = 'tests/attribute_file_with_unmatched_duplicated_labels.txt'
         sf.load_attributes(attribute_file=path_to_dup)
 
 
