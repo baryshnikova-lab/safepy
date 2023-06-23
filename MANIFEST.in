@@ -1,0 +1,17 @@
+include MANIFEST.in
+include setup.py
+include README.md
+include LICENSE
+prune examples
+prune tests
+prune test 
+prune safepy/data*
+prune safepy/deps* 
+prune safepy/plot*
+prune safepy/fig*
+prune safepy.egg-info
+prune .ipynb_checkpoints
+prune safepy/.ipynb_checkpoints
+include safepy/*.py
+include safepy/*.md
+include safepy/*/*.py

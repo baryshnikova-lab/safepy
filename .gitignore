@@ -1,6 +1,7 @@
 .ipynb_checkpoints/
 __pycache__/
 safepy_env/*
+docs/*
 
 *.pyc
 

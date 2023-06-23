@@ -2,8 +2,7 @@ import unittest
 import os
 import networkx as nx
 
-import safe
-import safe_io
+from safepy import safe, safe_io
 
 
 class TestImportCys(unittest.TestCase):
@@ -13,6 +12,7 @@ class TestImportCys(unittest.TestCase):
         sf = safe.SAFE(verbose=False)
 
         path_to_net = os.path.join(sf.path_to_safe_data, 'networks/Costanzo_Science_2016.cys')
+        # path_to_net='networks/Costanzo_Science_2016.cys'
         self.graph = safe_io.load_network_from_cys(path_to_net, verbose=False)
 
     def test_size(self):
@@ -40,7 +40,8 @@ class TestImportAttributes(unittest.TestCase):
         sf = safe.SAFE(verbose=False)
         sf.load_network()
 
-        path_to_dup = os.path.join(sf.path_to_safe_data, 'tests/attribute_file_with_unmatched_duplicated_labels.txt')
+        # path_to_dup = os.path.join(sf.path_to_safe_data, 'tests/attribute_file_with_unmatched_duplicated_labels.txt')
+        path_to_dup = 'tests/attribute_file_with_unmatched_duplicated_labels.txt'
         sf.load_attributes(attribute_file=path_to_dup)
 
 
