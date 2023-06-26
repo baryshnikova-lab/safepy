@@ -427,12 +427,22 @@ def read_attributes(attribute_file='', node_label_order=None, mask_duplicates=Fa
     return attributes, node_label_order, node2attribute
 
 
-def plot_network(G, ax=None, background_color='#000000',
-                 random_sampling_edges_min=30000,
-                 title='Network',
-                ):
-
-    foreground_color = '#ffffff'
+def plot_network(
+    G,
+    ax=None,
+    foreground_color = '#ffffff',
+    background_color='#000000',
+    random_sampling_edges_min=30000,
+    title='Network',
+    ):
+    """
+    Plot/draw a network.
+    
+    Note: 
+        The default attribute names 
+        gene ids: label_orf
+        gene symbols: label
+    """
     if background_color == '#ffffff':
         foreground_color = '#000000'
 
@@ -445,6 +455,7 @@ def plot_network(G, ax=None, background_color='#000000',
     # Randomly sample a fraction of the edges (when network is too big)
     edges = tuple(G.edges())
     if len(edges) >= random_sampling_edges_min:
+        logging.warning(f"Edges are randomly sampled because the network (edges={len(edges)}) is too big (random_sampling_edges_min={random_sampling_edges_min}).")
         edges = random.sample(edges, int(len(edges)*0.1))
 
     nx.draw(G, ax=ax, pos=node_xy, edgelist=edges,
@@ -574,6 +585,7 @@ def mark_nodes(
     foreground_color='#ffffff',
     background_color='#000000',
     labels=None, # subset the nodes by labels
+    label_va='center',
     legend_label: str=None,
     test=False,
     **kws,
@@ -592,7 +604,7 @@ def mark_nodes(
         
     if 'mark' in kind: 
         ## mark the selected nodes with the marker +
-        sn1 = ax.scatter(x, y, c='w', **kws)
+        sn1 = ax.scatter(x, y, **kws)
 
     if 'label' in kind:
         ## show labels e.g. gene names
@@ -600,9 +612,12 @@ def mark_nodes(
         assert len(x)==len(labels), f"len(x)!=len(labels): {len(x)}!={len(labels)}"
         if test:ax.plot(x, y, 'r*')
         for i,label in enumerate(labels):
-            ax.text(x[i], y[i], label, fontdict={'color': 'white', 'size': 14, 'weight': 'bold'},
-                    bbox={'facecolor': 'black', 'alpha': 0.5, 'pad': 3},
-                    horizontalalignment='center', verticalalignment='center')
+            ax.text(x[i], y[i], label,
+                    fontdict={'color': 'white' if background_color== '#000000' else 'k', 'size': 14, 'weight': 'bold'},
+                    # bbox={'facecolor': 'black', 'alpha': 0.5, 'pad': 3},
+                    ha='center',
+                    va=label_va,
+                   )
 
     if not legend_label is None:
         # Legend
@@ -660,6 +675,7 @@ def get_node_coordinates(graph,labels=[]):
         
         return  np.vstack(node_xy_list).T, labels_found
 
+## io
 def load_mat(filename):
     """
     this function should be called instead of direct spio.loadmat
