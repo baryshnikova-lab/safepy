@@ -5,7 +5,7 @@
 
     git commit -am "version bump";git push origin master
     python setup.py --version
-    git tag -a v$(python setup.py --version) -m "upgrage";git push --tags
+    git tag -a v$(python setup.py --version) -m "upgrade";git push --tags
 
 """
 
