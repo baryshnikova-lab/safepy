@@ -1,7 +1,9 @@
 .ipynb_checkpoints/
 __pycache__/
 safepy_env/*
+safepy.egg-info/*
 docs/*
+build/*
 
 *.pyc
 
