@@ -144,8 +144,8 @@ class SAFE:
             config['Input files'] = {}
         if path_to_safe_data is None:
             path_to_safe_data = config.get('Input files', 'safe_data')  # falls back on default if empty
-            if path_to_safe_data=='':
-                path_to_safe_data=None
+            if path_to_safe_data == '':
+                path_to_safe_data = None
         path_to_network_file = config.get('Input files', 'networkfile')  # falls back on default if empty
         path_to_attribute_file = config.get('Input files', 'annotationfile')  # falls back on default if empty
 
