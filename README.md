@@ -44,13 +44,13 @@ To import safepy package in the jupyter notebook:
 from safepy import safe
 ```
 
-To run the examples, several common datasets will be required (e.g., the genetic interaction similarity network from Costanzo et al., 2016). These datasets are stored separately at <https://github.com/baryshnikova-lab/safe-data> (to avoid duplication with other SAFE-related repositories and packages). We recommend cloning the safe-data repository and storing it locally (e.g., at <path_to_safe-data_folder>). In addition, it is necessary to edit the SAFE settings file (at `safepy/safe_default.ini`) with the path to the `safe-data` folder.
+To run the examples, several common datasets will be required (e.g., the genetic interaction similarity network from Costanzo et al., 2016). These datasets are stored separately at <https://github.com/baryshnikova-lab/safe-data> (to avoid duplication with other SAFE-related repositories and packages). We recommend cloning the safe-data repository and storing it locally. In addition, it is necessary to edit the SAFE settings file (at `safepy/safe_default.ini`) with the path to the `safe-data` folder. By default, `safe-data` is expected to be located in the same parent folder as `safepy`:
 
 ```
 vim safe_default.ini
 ...
 [DEFAULT]
-safe_data = <path_to_safe-data_folder>
+safe_data = ../safe-data/
 ...
 ```
 
