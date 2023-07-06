@@ -19,7 +19,7 @@ SAFE requires Python 3 and a set of packages listed in `extras/requirements.txt`
 cd safepy/
 virtualenv -p python3 safepy_env
 source safepy_env/bin/activate
-pip install git+https://github.com/baryshnikova-lab/safepy.git@package ## To do: remove @package suffix if the PR is accepted
+pip install git+https://github.com/baryshnikova-lab/safepy.git
 ```
 
 ### Usage  
@@ -59,7 +59,7 @@ safe_data = ../safe-data/
 It may also be useful to run a series of unit tests to verify that SAFE provides the correct outputs for default inputs. Tests are progressively being written and added to the repository. To run all the existing tests (from the `safepy` folder):
 
 ```
-git -b package clone https://github.com/baryshnikova-lab/safepy.git ## To do: remove '-b package' if the PR is accepted
+git package clone https://github.com/baryshnikova-lab/safepy.git
 git clone https://github.com/baryshnikova-lab/safe-data.git
 cd safepy/
 pip install -e . ## install the package in developer mode
