@@ -58,7 +58,7 @@ class SAFE:
 
         self.default_config = None
 
-        self.path_to_safe_data = None
+        self.path_to_safe_data = path_to_safe_data
         self.path_to_network_file = None
         self.view_name = None
         self.path_to_attribute_file = None
@@ -105,7 +105,7 @@ class SAFE:
         self.output_dir = ''
 
         # Read both default and user-defined settings
-        self.read_config(path_to_ini_file, path_to_safe_data=path_to_safe_data)
+        self.read_config(path_to_ini_file, path_to_safe_data=self.path_to_safe_data)
 
         # Validate config
         self.validate_config()
@@ -144,15 +144,21 @@ class SAFE:
             config['Input files'] = {}
         if path_to_safe_data is None:
             path_to_safe_data = config.get('Input files', 'safe_data')  # falls back on default if empty
-        
+            if path_to_safe_data=='':
+                path_to_safe_data=None
         path_to_network_file = config.get('Input files', 'networkfile')  # falls back on default if empty
         path_to_attribute_file = config.get('Input files', 'annotationfile')  # falls back on default if empty
 
         self.path_to_safe_data = path_to_safe_data
-        assert self.path_to_safe_data.endswith('/'), "path_to_safe_data should end with '/', else `os.path.join` may not provide desired output."
-        self.path_to_network_file = os.path.join(path_to_safe_data, path_to_network_file)
-        self.path_to_attribute_file = os.path.join(path_to_safe_data, path_to_attribute_file)
-
+        if not self.path_to_safe_data is None:
+            assert self.path_to_safe_data.endswith('/'), "path_to_safe_data should end with '/', else `os.path.join` may not provide desired output."
+            self.path_to_network_file = os.path.join(self.path_to_safe_data, path_to_network_file)
+            self.path_to_attribute_file = os.path.join(self.path_to_safe_data, path_to_attribute_file)
+        else:
+            ## direct paths to the network and attribute files
+            self.path_to_network_file = path_to_network_file
+            self.path_to_attribute_file = path_to_attribute_file
+            
         self.attribute_sign = config.get('Input files', 'annotationsign') # falls back on default if empty
 
         if 'Analysis parameters' not in config:
@@ -230,7 +236,7 @@ class SAFE:
         Load the network from a source file and, if necessary, apply a network layout.
 
         Keyword Args:
-            * network_file (:obj:`str`, optional): Path to the file containing the network.
+            * network_file (:obj:`str`, optional): Path to the file containing the network. Note: if the path to safe data (`path_to_safe_data`) is provided, this would the path inside the `safe_data` folder, else a direct path to the file. 
             * node_key_attribute (:obj:`str`, optional): Name of the node attribute that should be treated as key identifier.
 
         :return: none
@@ -307,7 +313,8 @@ class SAFE:
         Preprocess and load the attributes i.e. features of the genes.
         
         Keyword arguments:
-            kwargs: parameters provided to `load_attributes` function.
+            kwargs: parameters provided to `read_attributes` function.
+            * attribute_file (:obj:`str`, optional): Path to the file containing the attributes. Note: if path to safe data (`path_to_safe_data`) is provided, this would the path inside the `safe_data` folder, else a direct path to the file. 
         """
         
         # Overwrite the global settings, if required
