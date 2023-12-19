@@ -2,7 +2,6 @@ include MANIFEST.in
 include setup.py
 include README.md
 include LICENSE
-include safe_default.ini
 prune examples
 prune tests
 prune test 
@@ -14,5 +13,6 @@ prune safepy.egg-info
 prune .ipynb_checkpoints
 prune safepy/.ipynb_checkpoints
 include safepy/*.py
+include safepy/*.ini
 include safepy/*.md
 include safepy/*/*.py
