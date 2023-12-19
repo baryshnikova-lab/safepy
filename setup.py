@@ -20,7 +20,7 @@ with open('README.md', 'r') as fh:
 
 # Dependencies/requirements
 requirements = {
-    'base':  open('./extras/requirements.txt','r').read().split('\n'),
+    'base':  open('./extras/requirements.txt', 'r').read().split('\n'),
 }
 extras_require = {k: l for k, l in requirements.items() if not k == 'base'}
 
@@ -43,7 +43,7 @@ setuptools.setup(
     author='',
     author_email='',
     license='General Public License v. 3',
-    packages=setuptools.find_packages('.',exclude=['test', 'unit','deps', 'data']),
+    packages=setuptools.find_packages('.', exclude=['test', 'unit', 'deps', 'data']),
     classifiers=[
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
@@ -57,6 +57,10 @@ setuptools.setup(
     extras_require=extras_require,
     entry_points={
         'console_scripts': ['safepy = safepy.run:parser.dispatch', ],
+    },
+    include_package_data=True,
+    package_data={
+        '': ['*.ini'],
     },
     python_requires='>=3.7, <4',
 )
