@@ -738,6 +738,8 @@ class SAFE:
                      foreground_color='#ffffff',
                      background_color='#000000',
                      labels=[],
+                     node_size=10,
+                     alpha=0.2,
                      **kwargs_mark_nodes,
                      ):
         """
@@ -752,7 +754,7 @@ class SAFE:
             kwargs_mark_nodes: parameters provided to `mark_nodes` function.
         """
 
-        ax = plot_network(self.graph, background_color=background_color)
+        ax = plot_network(self.graph, background_color=background_color, node_size=node_size, alpha=alpha)
 
         # Plot the labels, if any
         if len(labels) > 0:
