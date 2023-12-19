@@ -2,6 +2,7 @@ include MANIFEST.in
 include setup.py
 include README.md
 include LICENSE
+include safe_default.ini
 prune examples
 prune tests
 prune test 

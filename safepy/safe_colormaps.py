@@ -32,4 +32,3 @@ def get_colors(colormap='hsv', n=10):
     np.random.shuffle(rgb[1:])
 
     return rgb
-

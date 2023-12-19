@@ -50,8 +50,8 @@ class SAFE:
         Alternatively, each setting can be changed manually after initiation.
 
         :param path_to_ini_file (str): Path to the configuration file. If not specified, safe_default.ini will be used.
+        :param path_to_safe_data (str): Path to the folder containing input data (network, node coordinates, node attributes, etc).
         :param verbose (bool): Defines whether or not intermediate output will be printed out.
-
         """
 
         self.verbose = verbose
@@ -64,6 +64,7 @@ class SAFE:
         self.path_to_attribute_file = None
 
         self.graph = None
+        self.graph_euclidean = None
         self.node_key_attribute = 'label_orf'
 
         self.attributes = None
@@ -116,6 +117,7 @@ class SAFE:
         Read the settings from an INI file and update the attributes in the SAFE class.
 
         :param path_to_ini_file (str): Path to the configuration file. If not specified, safe_default.ini will be used.
+        :param path_to_safe_data (str): Path to the folder containing input data (network, node coordinates, node attributes, etc).
         :return: none
         """
 
@@ -155,10 +157,10 @@ class SAFE:
             self.path_to_network_file = os.path.join(self.path_to_safe_data, path_to_network_file)
             self.path_to_attribute_file = os.path.join(self.path_to_safe_data, path_to_attribute_file)
         else:
-            ## direct paths to the network and attribute files
+            # direct paths to the network and attribute files
             self.path_to_network_file = path_to_network_file
             self.path_to_attribute_file = path_to_attribute_file
-            
+
         self.attribute_sign = config.get('Input files', 'annotationsign') # falls back on default if empty
 
         if 'Analysis parameters' not in config:
@@ -248,8 +250,11 @@ class SAFE:
                 self.path_to_network_file = kwargs['network_file']
             else:
                 self.path_to_network_file = os.path.join(self.path_to_safe_data, kwargs['network_file'])
-            del kwargs['network_file'] ## remove the redundant/old path
-        assert os.path.exists(self.path_to_network_file), self.path_to_network_file # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
+            del kwargs['network_file']  # remove the redundant/old path
+
+        # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
+        assert os.path.exists(self.path_to_network_file), self.path_to_network_file
+
         if 'view_name' in kwargs:
             self.view_name = kwargs['view_name']
         if 'node_key_attribute' in kwargs:
@@ -265,7 +270,7 @@ class SAFE:
         else:
 
             # [_, file_extension] = os.path.splitext(self.path_to_network_file)
-            file_extension=Path(self.path_to_network_file).suffixes[0] # compatible with double extension e.g. txt.gz
+            file_extension = Path(self.path_to_network_file).suffixes[0]  # compatible with double extension e.g. txt.gz
             if self.verbose:
                 logging.info('Loading network from %s' % self.path_to_network_file)
 
@@ -284,6 +289,15 @@ class SAFE:
                 self.graph = load_network_from_scatter(self.path_to_network_file,
                                                        node_key_attribute=self.node_key_attribute,
                                                        verbose=self.verbose)
+
+                # Add a pseudo-network to facilitate potential additional analyses
+                # Edges in the network connect nodes within the pre-specified distance
+                node_coordinates = get_node_coordinates(self.graph)
+                node_distances = squareform(pdist(node_coordinates, 'euclidean'))
+                nr = self.neighborhood_radius * (np.max(node_coordinates.ravel()) - np.min(node_coordinates.ravel()))
+                adjacency_matrix = np.zeros(node_distances.shape)
+                adjacency_matrix[node_distances < nr] = 1
+                self.graph_euclidean = nx.from_numpy_array(adjacency_matrix)
 
         # Setting the node key for mapping attributes
         key_list = nx.get_node_attributes(self.graph, self.node_key_attribute)
@@ -316,19 +330,20 @@ class SAFE:
             kwargs: parameters provided to `read_attributes` function.
             * attribute_file (:obj:`str`, optional): Path to the file containing the attributes. Note: if path to safe data (`path_to_safe_data`) is provided, this would the path inside the `safe_data` folder, else a direct path to the file. 
         """
-        
+
         # Overwrite the global settings, if required
         if 'attribute_file' in kwargs:
             if self.path_to_safe_data is None or isinstance(kwargs['attribute_file'],pd.DataFrame):
                 self.path_to_attribute_file = kwargs['attribute_file']
-            elif isinstance(kwargs['attribute_file'],str):
+            elif isinstance(kwargs['attribute_file'], str):
                 self.path_to_attribute_file = os.path.join(self.path_to_safe_data, kwargs['attribute_file'])
             else:
-                raise ValueError(type(kwargs['attribute_file']))     
-            del kwargs['attribute_file'] ## remove the redundant/old path
-        if isinstance(self.path_to_attribute_file,str):
-            assert os.path.exists(self.path_to_attribute_file), self.path_to_attribute_file # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
-            
+                raise ValueError(type(kwargs['attribute_file']))
+            del kwargs['attribute_file']  # remove the redundant/old path
+        if isinstance(self.path_to_attribute_file, str):
+            # os.path.join may misbehave if there are extra '/' at the place where the paths are joined.
+            assert os.path.exists(self.path_to_attribute_file), self.path_to_attribute_file
+
         # Make sure that the settings are still valid
         self.validate_config()
 
@@ -338,8 +353,8 @@ class SAFE:
             logging.info('Loading attributes from %s' % self.path_to_attribute_file)
 
         [self.attributes, _, self.node2attribute] = read_attributes(node_label_order=node_label_order,
-                                                                    verbose=self.verbose, 
-                                                                    attribute_file=self.path_to_attribute_file, 
+                                                                    verbose=self.verbose,
+                                                                    attribute_file=self.path_to_attribute_file,
                                                                     **kwargs)
 
     def define_neighborhoods(self, **kwargs):
@@ -377,7 +392,6 @@ class SAFE:
         else:
 
             if self.node_distance_metric == 'shortpath_weighted_layout':
-                # x = np.matrix(self.graph.nodes.data('x'))[:, 1]
                 x = list(dict(self.graph.nodes.data('x')).values())
                 nr = self.neighborhood_radius * (np.max(x) - np.min(x))
                 all_shortest_paths = dict(nx.all_pairs_dijkstra_path_length(self.graph,
@@ -431,9 +445,10 @@ class SAFE:
         num_nans = np.sum(np.isnan(self.node2attribute), axis=0)
 
         if any(num_nans/num_vals > 0.5):
-            logging.warning("WARNING: more than 50% of nodes in the network as set to NaN and will be ignored for calculating enrichment.\n'Consider setting sf.background = ''network''.'")
+            # Warn users if more than 50% of values are NaN
+            logging.warning("WARNING: more than 50% of nodes in the network are set to NaN and \
+            will be ignored for calculating enrichment.\n'Consider setting sf.background = ''network''.'")
 
-        # Warn users if more than 50% of values are NaN
         num_other_values = np.sum(~np.isnan(self.node2attribute) & ~np.isin(self.node2attribute, [0, 1]))
 
         if (self.enrichment_type == 'hypergeometric') or ((self.enrichment_type == 'auto') and (num_other_values == 0)):
@@ -615,6 +630,9 @@ class SAFE:
 
                 enriched_neighborhoods = list(compress(list(self.graph), self.nes_binary[:, attribute] > 0))
                 H = nx.subgraph(self.graph, enriched_neighborhoods)
+                # If the network is edgeless, use the euclidean distance network to estimate unimodality
+                if self.graph_euclidean:
+                    H = nx.subgraph(self.graph_euclidean, enriched_neighborhoods)
 
                 connected_components = sorted(nx.connected_components(H), key=len, reverse=True)
                 num_connected_components = len(connected_components)
@@ -651,9 +669,9 @@ class SAFE:
 
         # Assign nodes to domains
         node2nes = pd.DataFrame(data=self.nes,
-                                    columns=[self.attributes.index.values, self.attributes['domain']])
+                                columns=[self.attributes.index.values, self.attributes['domain']])
         node2nes_binary = pd.DataFrame(data=self.nes_binary,
-                                           columns=[self.attributes.index.values, self.attributes['domain']])
+                                       columns=[self.attributes.index.values, self.attributes['domain']])
 
         # # A node belongs to the domain that contains the attribute
         # for which the node has the highest enrichment
@@ -682,7 +700,7 @@ class SAFE:
             min_num_attributes = num_attributes_per_domain.min()
             max_num_attributes = num_attributes_per_domain.max()
             logging.info('Number of domains: %d (containing %d-%d attributes)' %
-                  (num_domains, min_num_attributes, max_num_attributes))
+                         (num_domains, min_num_attributes, max_num_attributes))
 
     def trim_domains(self, **kwargs):
 
@@ -714,52 +732,57 @@ class SAFE:
 
         if self.verbose:
             logging.info('Removed %d domains because they were the top choice for less than %d neighborhoods.'
-                  % (len(to_remove), self.attribute_enrichment_min_size))
+                         % (len(to_remove), self.attribute_enrichment_min_size))
 
-    def plot_network(self, 
-                     foreground_color = '#ffffff',
+    def plot_network(self,
+                     foreground_color='#ffffff',
                      background_color='#000000',
                      labels=[],
                      **kwargs_mark_nodes,
-                    ):
+                     ):
         """
         Plot the base network.
         
         Parameters:
+            foreground_color (str):
+            background_color (str):
             labels (list): the genes to show on the network.
         
         Keyword parameters:
             kwargs_mark_nodes: parameters provided to `mark_nodes` function.
         """
-        ax=plot_network(self.graph, background_color=background_color)
+
+        ax = plot_network(self.graph, background_color=background_color)
+
         # Plot the labels, if any
-        if len(labels)!=0:
-            ## get the coordinates of the points
-            node_xy_labels,labels_found=get_node_coordinates(graph=self.graph,labels=labels)
-            ## mark the nodes
-            ax=mark_nodes(
-                       x=node_xy_labels[:, 0],
-                       y=node_xy_labels[:, 1],
-                       labels=labels_found,
-                       ax=ax,
-                       foreground_color=foreground_color,
-                       background_color=background_color,
-                       **kwargs_mark_nodes,
-                      )
+        if len(labels) > 0:
+            # Get the coordinates of the points
+            node_xy_labels, labels_found = get_node_coordinates(graph=self.graph, labels=labels)
+
+            # Mark the nodes
+            ax = mark_nodes(
+                x=node_xy_labels[:, 0],
+                y=node_xy_labels[:, 1],
+                labels=labels_found,
+                ax=ax,
+                foreground_color=foreground_color,
+                background_color=background_color,
+                **kwargs_mark_nodes,
+            )
         return ax
-    
+
     def plot_composite_network_contours(self,
-                                        save_fig=None, clabels=False,
-                                        foreground_color = '#ffffff',
+                                        save_fig=None,
+                                        clabels=False,
                                         background_color='#000000'):
         """
-        Show the countours i.e. outlines for the categories of genes. 
+        Plot domain contours.
         
         Parameters:
-            clabels (bool): 
+            save_fig (bool):
+            clabels (bool):
+            background_color (str):
         """
-        if background_color == '#ffffff':
-            foreground_color = '#000000'
 
         domains = np.sort(self.attributes['domain'].unique())
         # domains = self.domains.index.values
@@ -813,16 +836,27 @@ class SAFE:
             print('Output path: %s' % path_to_fig)
             plt.savefig(path_to_fig, facecolor=background_color)
 
-    def plot_composite_network(self, show_each_domain=False, show_domain_ids=True,
-                               save_fig=None, labels=[],
-                               foreground_color = '#ffffff',
+    def plot_composite_network(self,
+                               show_each_domain=False,
+                               show_domain_ids=True,
+                               show_network_contour=True,
+                               save_fig=None,
+                               labels=[],
+                               foreground_color='#ffffff',
                                background_color='#000000'):
         """
-        Show the domains i.e. categories of the genes.
+        Plot all nodes colored by their domain associations.
         
         Parameters:
-            show_each_domain (bool): Show each domain on a separate plot (defaults to False). 
+            show_each_domain (bool): Show each domain on a separate plot (defaults to False).
+            show_domain_ids (bool):
+            show_network_contour (bool):
+            save_fig:
+            labels (list):
+            foreground_color (str):
+            background_color (str):
         """
+
         if background_color == '#ffffff':
             foreground_color = '#000000'
 
@@ -885,23 +919,24 @@ class SAFE:
         axes[1].set_facecolor(background_color)
 
         # Plot a circle around the network
-        plot_network_contour(self.graph, axes[1], background_color=background_color)
+        if show_network_contour:
+            plot_network_contour(self.graph, axes[1], background_color=background_color)
 
         # Plot the labels, if any
         if len(labels)!=0:
-            ## get the coordinates of the points
+            # Get the coordinates of the points
             node_xy_labels,labels_found=get_node_coordinates(graph=self.graph,labels=labels)
-            ## mark the nodes
-            ax=mark_nodes(
-                       x=node_xy_labels[:, 0],
-                       y=node_xy_labels[:, 1],
-                       kind=['label'],
-                       labels=labels_found,
-                       ax=axes[1],
-                       foreground_color=foreground_color,
-                       background_color=background_color,
-                      )
-            
+            # Mark the nodes
+            ax = mark_nodes(
+                x=node_xy_labels[:, 0],
+                y=node_xy_labels[:, 1],
+                kind=['label'],
+                labels=labels_found,
+                ax=axes[1],
+                foreground_color=foreground_color,
+                background_color=background_color,
+            )
+
         if show_domain_ids:
             for domain in domains[domains > 0]:
                 idx = self.node2domain['primary_domain'] == domain
@@ -924,7 +959,6 @@ class SAFE:
                 # c[:, 3] = alpha
 
                 idx = self.node2domain['primary_domain'] == domain
-                # ix = np.argsort(c)
                 axes[1+domain].scatter(node_xy[idx, 0], node_xy[idx, 1], c=c[idx],
                                        s=60, edgecolor=None)
                 axes[1+domain].set_aspect('equal')
@@ -935,18 +969,18 @@ class SAFE:
 
                 # Plot the labels, if any
                 if len(labels)!=0:
-                    ## get the coordinates of the points
+                    # Get the coordinates of the points
                     node_xy_labels,labels_found=get_node_coordinates(graph=self.graph,labels=labels)
-                    ## mark the nodes
+                    # Mark the nodes
                     ax=mark_nodes(
-                               x=node_xy_labels[:, 0],
-                               y=node_xy_labels[:, 1],
-                               labels=labels_found,
-                               kind=['label'],
-                               ax=axes[1+domain],
-                               foreground_color=foreground_color,
-                               background_color=background_color,
-                              )
+                        x=node_xy_labels[:, 0],
+                        y=node_xy_labels[:, 1],
+                        labels=labels_found,
+                        kind=['label'],
+                        ax=axes[1+domain],
+                        foreground_color=foreground_color,
+                        background_color=background_color,
+                    )
         fig.set_facecolor(background_color)
 
         if save_fig:
@@ -954,25 +988,34 @@ class SAFE:
             logging.info('Output path: %s' % path_to_fig)
             plt.savefig(path_to_fig, facecolor=background_color)
 
-    def plot_sample_attributes(
-            self, attributes=1, top_attributes_only=False,
-            show_network=True,
-            show_costanzo2016=False, show_costanzo2016_colors=True, show_costanzo2016_clabels=False,
-            show_nes=True, show_raw_data=False, show_significant_nodes=False,
-            show_colorbar=True, colors=['82add6', 'facb66'],
-            foreground_color = '#ffffff',
-            background_color='#000000',
-            labels: list=[],
-            save_fig=None, **kwargs
-        ):
+    def plot_sample_attributes(self,
+                               attributes=1,
+                               top_attributes_only=False,
+                               show_network=True,
+                               show_network_contour=True,
+                               show_costanzo2016=False,
+                               show_costanzo2016_colors=True,
+                               show_costanzo2016_clabels=False,
+                               show_nes=True,
+                               show_raw_data=False,
+                               show_significant_nodes=False,
+                               show_colorbar=True,
+                               colors=['82add6','facb66'],
+                               foreground_color = '#ffffff',
+                               background_color='#000000',
+                               labels: list=[],
+                               save_fig=None,
+                               **kwargs
+                               ):
         """
-        Show attributes i.e. features of the genes.
+        Plot enrichment landscapes for 1 or more attributes.
         
         Parameters:
-            attributes (int): number of .. (defaults to 1).
-            show_nes (bool): show .. (defaults to True).
-            labels (list): show labels (defaults to []).
+            attributes (int):
+            show_nes (bool):
+            labels (list):
         """
+
         if background_color == '#ffffff':
             foreground_color = '#000000'
 
@@ -1141,47 +1184,46 @@ class SAFE:
                     leg_title = leg.get_title()
                     leg_title.set_color(foreground_color)
 
-            
             if show_significant_nodes:
-                ## show the significant nodes
+                # Show the significant nodes
                 with np.errstate(divide='ignore', invalid='ignore'):
-                    ## get the index of the points
+                    # Get the index of the points
                     idx = np.abs(self.nes_binary[:, attribute]) > 0
                 mark_nodes(
-                           node_xy[idx, 0],
-                           node_xy[idx, 1],
-                           kind=['mark'],
-                           ax=ax,
-                           legend_label = ('p < %.2e' % self.enrichment_threshold),
-                           foreground_color=foreground_color,
-                           background_color=background_color,
-                           marker='+',
-                          )                
-            
+                    node_xy[idx, 0],
+                    node_xy[idx, 1],
+                    kind=['mark'],
+                    ax=ax,
+                    legend_label=('p < %.2e' % self.enrichment_threshold),
+                    foreground_color=foreground_color,
+                    background_color=background_color,
+                    marker='+',
+                )
+
             if show_costanzo2016:
                 plot_costanzo2016_network_annotations(self.graph, ax, self.path_to_safe_data,
                                                       colors=show_costanzo2016_colors,
                                                       clabels=show_costanzo2016_clabels,
                                                       background_color=background_color)
-            
-            
+
             # Plot a circle around the network
-            plot_network_contour(self.graph, ax, background_color=background_color)
+            if show_network_contour:
+                plot_network_contour(self.graph, ax, background_color=background_color)
 
             # Plot the labels, if any
             if len(labels)!=0:
-                ## get the coordinates of the points
+                # Get the coordinates of the points
                 node_xy_labels,labels_found=get_node_coordinates(graph=self.graph,labels=labels)
-                ## mark the nodes
-                ax=mark_nodes(
-                           x=node_xy_labels[:, 0],
-                           y=node_xy_labels[:, 1],
-                           kind=['label'],
-                           labels=labels_found,
-                           ax=ax,
-                           foreground_color=foreground_color,
-                           background_color=background_color,
-                          )
+                # Mark the nodes
+                ax = mark_nodes(
+                    x=node_xy_labels[:, 0],
+                    y=node_xy_labels[:, 1],
+                    kind=['label'],
+                    labels=labels_found,
+                    ax=ax,
+                    foreground_color=foreground_color,
+                    background_color=background_color,
+                )
 
             ax.set_aspect('equal')
             ax.set_facecolor(background_color)
@@ -1266,7 +1308,8 @@ if __name__ == '__main__':
 
     start = time.time()
 
-    parser = argparse.ArgumentParser(description='Run Spatial Analysis of Functional Enrichment (SAFE) on the default Costanzo et al., 2016 network')
+    parser = argparse.ArgumentParser(description='Run Spatial Analysis of Functional Enrichment (SAFE) \
+    on the default Costanzo et al., 2016 network')
     parser.add_argument('path_to_attribute_file', metavar='path_to_attribute_file', type=str,
                         help='Path to the file containing label-to-attribute annotations')
 
