@@ -925,7 +925,7 @@ class SAFE:
             plot_network_contour(self.graph, axes[1], background_color=background_color)
 
         # Plot the labels, if any
-        if len(labels)!=0:
+        if len(labels) != 0:
             # Get the coordinates of the points
             node_xy_labels,labels_found=get_node_coordinates(graph=self.graph,labels=labels)
             # Mark the nodes
@@ -967,14 +967,15 @@ class SAFE:
                 axes[1+domain].set_facecolor(background_color)
                 axes[1+domain].set_title('Domain %d\n%s' % (domain, self.domains.loc[domain, 'label']),
                                          color=foreground_color)
-                plot_network_contour(self.graph, axes[1+domain], background_color=background_color)
+                if show_network_contour:
+                    plot_network_contour(self.graph, axes[1+domain], background_color=background_color)
 
                 # Plot the labels, if any
-                if len(labels)!=0:
+                if len(labels) != 0:
                     # Get the coordinates of the points
-                    node_xy_labels,labels_found=get_node_coordinates(graph=self.graph,labels=labels)
+                    node_xy_labels, labels_found = get_node_coordinates(graph=self.graph, labels=labels)
                     # Mark the nodes
-                    ax=mark_nodes(
+                    ax = mark_nodes(
                         x=node_xy_labels[:, 0],
                         y=node_xy_labels[:, 1],
                         labels=labels_found,
@@ -1003,7 +1004,7 @@ class SAFE:
                                show_significant_nodes=False,
                                show_colorbar=True,
                                colors=['82add6','facb66'],
-                               foreground_color = '#ffffff',
+                               foreground_color='#ffffff',
                                background_color='#000000',
                                labels: list=[],
                                save_fig=None,
