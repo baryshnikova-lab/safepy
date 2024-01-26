@@ -4,6 +4,7 @@ import re
 import os
 from pathlib import Path
 import logging
+import pickle
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -124,7 +125,8 @@ def load_network_from_txt(filename, layout='spring_embedded', node_key_attribute
 def load_network_from_gpickle(filename, verbose=True):
 
     filename = re.sub('~', expanduser('~'), filename)
-    G = nx.read_gpickle(filename)
+    with open(filename, 'rb') as f:
+        G = pickle.load(f)
 
     return G
 
