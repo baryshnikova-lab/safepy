@@ -364,6 +364,10 @@ def read_attributes(attribute_file='', node_label_order=None, mask_duplicates=Fa
 
             node2attribute.columns = np.arange(len(node2attribute.columns))
 
+        else:
+
+            raise ValueError("Only attribute files with the following extensions are accepted: .mat, .txt, .gz.")
+
     elif isinstance(attribute_file, pd.DataFrame):
 
         node2attribute = attribute_file
