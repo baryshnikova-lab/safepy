@@ -381,8 +381,8 @@ class SAFE:
             x = list(dict(self.graph.nodes.data('x')).values())
             nr = self.neighborhood_radius * (np.max(x) - np.min(x))
 
-            x = np.matrix(self.graph.nodes.data('x'))[:, 1]
-            y = np.matrix(self.graph.nodes.data('y'))[:, 1]
+            x = np.reshape(np.array(self.graph.nodes.data('x'))[:,1], (-1,1))
+            y = np.reshape(np.array(self.graph.nodes.data('y'))[:,1], (-1,1))
 
             node_coordinates = np.concatenate([x, y], axis=1)
             node_distances = squareform(pdist(node_coordinates, 'euclidean'))
@@ -513,7 +513,7 @@ class SAFE:
 
             arg_tuple = (self.neighborhoods, self.node2attribute,
                          self.neighborhood_score_type, self.num_permutations)
-            [counts_neg, counts_pos] = run_permutations(arg_tuple)
+            [counts_neg, counts_pos] = run_permutations(arg_tuple, **kwargs)
 
         idx = np.isnan(N_in_neighborhood_in_group)
         counts_neg[idx] = np.nan
@@ -878,7 +878,8 @@ class SAFE:
         node2nes_binary = pd.DataFrame(data=self.nes_binary,
                                        columns=[self.attributes.index.values, self.attributes['domain']])
         node2domain_count = node2nes_binary.groupby(level='domain', axis=1).sum()
-        node2all_domains_count = node2domain_count.sum(axis=1)[:, np.newaxis]
+        node2all_domains_count = node2domain_count.sum(axis=1).values
+        node2all_domains_count = np.reshape(node2all_domains_count, (-1,1))
 
         with np.errstate(divide='ignore', invalid='ignore'):
             c = np.matmul(node2domain_count.values, domain2rgb) / node2all_domains_count

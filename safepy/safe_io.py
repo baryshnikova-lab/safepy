@@ -316,8 +316,8 @@ def calculate_edge_lengths(G, verbose=True):
     if verbose:
         logging.info('Calculating edge lengths...')
 
-    x = np.matrix(G.nodes.data('x'))[:, 1]
-    y = np.matrix(G.nodes.data('y'))[:, 1]
+    x = np.reshape(np.array(G.nodes.data('x'))[:,1], (-1,1))
+    y = np.reshape(np.array(G.nodes.data('y'))[:,1], (-1,1))
 
     node_coordinates = np.concatenate([x, y], axis=1)
     node_distances = squareform(pdist(node_coordinates, 'euclidean'))
@@ -385,7 +385,7 @@ def read_attributes(attribute_file='', node_label_order=None, mask_duplicates=Fa
     # Averaging duplicate rows (with notification)
     if not node2attribute.index.is_unique:
         logging.info('\nThe attribute file contains multiple values for the same labels. Their values will be averaged.')
-        node2attribute = node2attribute.groupby(node2attribute.index, axis=0).mean()
+        node2attribute = node2attribute.groupby(node2attribute.index).mean()
 
     if not node_label_order:
         node_label_order = node2attribute.index.values
