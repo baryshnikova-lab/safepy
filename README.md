@@ -19,7 +19,7 @@ SAFE requires Python 3 and a set of packages listed in `extras/requirements.txt`
 cd safepy/
 virtualenv -p python3 safepy_env
 source safepy_env/bin/activate
-pip install git+https://github.com/baryshnikova-lab/safepy.git
+pip install -r requirements.txt
 ```
 
 ### Usage  
@@ -35,13 +35,7 @@ ipython kernel install --user --name=safepy_env
 Then start jupyter, open `examples/Example_1_GI_network_doxorubicin.ipynb` and select the safepy_env kernel.
 
 ```
-jupyter-notebook
-```
-
-To import safepy package in the jupyter notebook:
-
-```
-from safepy import safe
+jupyter lab
 ```
 
 To run the examples, several common datasets will be required (e.g., the genetic interaction similarity network from Costanzo et al., 2016). These datasets are stored separately at <https://github.com/baryshnikova-lab/safe-data> (to avoid duplication with other SAFE-related repositories and packages). We recommend cloning the safe-data repository and storing it locally. In addition, it is necessary to edit the SAFE settings file (at `safepy/safe_default.ini`) with the path to the `safe-data` folder. By default, `safe-data` is expected to be located in the same parent folder as `safepy`:
@@ -59,10 +53,6 @@ safe_data = ../safe-data/
 It may also be useful to run a series of unit tests to verify that SAFE provides the correct outputs for default inputs. Tests are progressively being written and added to the repository. To run all the existing tests (from the `safepy` folder):
 
 ```
-git package clone https://github.com/baryshnikova-lab/safepy.git
-git clone https://github.com/baryshnikova-lab/safe-data.git
-cd safepy/
-pip install -e . ## install the package in developer mode
 cd tests/
 python -m unittest discover -v -s .
 ```
@@ -70,7 +60,7 @@ python -m unittest discover -v -s .
 HELP
 ====
 
-Please direct all questions/comments to Anastasia Baryshnikova (<abaryshnikova@calicolabs.com>).
+Please direct all questions/comments to Anastasia Baryshnikova (<abaryshk@gmail.com>).
 
 The main repository for this code is at <https://github.com/baryshnikova-lab/safepy>. Please subscribe to the repository to receive live updates about new code releases and bug reports.
 
