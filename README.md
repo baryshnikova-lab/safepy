@@ -19,7 +19,7 @@ SAFE requires Python 3 and a set of packages listed in `extras/requirements.txt`
 cd safepy/
 virtualenv -p python3 safepy_env
 source safepy_env/bin/activate
-pip install -r requirements.txt
+pip install -r extras/requirements.txt
 ```
 
 ### Usage  
