@@ -6,4 +6,6 @@ docs/*
 build/*
 
 *.pyc
+.DS_Store
+*code-workspace
 
