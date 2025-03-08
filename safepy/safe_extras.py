@@ -33,7 +33,12 @@ def compute_neighborhood_score(neighborhood2node, node2attribute, neighborhood_s
     return neighborhood_score
 
 
-def run_permutations(arg_tuple):
+def run_permutations(arg_tuple, **kwargs):
+
+    if 'verbose' in kwargs:
+        tqdm_disable = not kwargs['verbose']
+    else:
+        tqdm_disable = False
 
     # Seed the random number generator to a "random" number
     np.random.seed()
@@ -48,7 +53,7 @@ def run_permutations(arg_tuple):
     counts_neg = np.zeros(N_in_neighborhood_in_group.shape)
     counts_pos = np.zeros(N_in_neighborhood_in_group.shape)
 
-    for _ in tqdm(np.arange(num_permutations)):
+    for _ in tqdm(np.arange(num_permutations), disable=tqdm_disable):
         # Permute only the rows that have values
         n2a[indx_vals, :] = n2a[np.random.permutation(indx_vals), :]
 

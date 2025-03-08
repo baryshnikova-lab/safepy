@@ -1,6 +1,9 @@
 import unittest
-import os
+import os, sys
 import numpy as np
+import logging
+
+sys.path.append('../../safepy')
 
 from safepy import safe
 
@@ -58,6 +61,8 @@ class TestEnrichmentPermutations(unittest.TestCase):
 
     def setUp(self):
 
+        logging.disable(logging.CRITICAL)
+
         # Load the default network
         sf = safe.SAFE(verbose=False)
         sf.load_network()
@@ -69,7 +74,7 @@ class TestEnrichmentPermutations(unittest.TestCase):
         sf.load_attributes(attribute_file=path_to_dox)
 
         # Run the enrichment
-        sf.compute_pvalues(num_permutations=1000, multiple_testing=False)
+        sf.compute_pvalues(num_permutations=1000, multiple_testing=False, verbose=False)
 
         self.sf = sf
 
