@@ -691,8 +691,8 @@ class SAFE:
 
         # Get the max NES for the primary domain
         o = node2nes.groupby(level='domain', axis=1).max()
-        i = pd.Series(t_idxmax)
-        self.node2domain['primary_nes'] = o.lookup(i.index, i.values)
+        i = list(zip(t_idxmax.index.values, t_idxmax.values))
+        self.node2domain['primary_nes'] = [o.loc[row, col] for row, col in i]
 
         if self.verbose:
             num_domains = len(np.unique(domains))
