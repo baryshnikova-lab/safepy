@@ -48,6 +48,8 @@ safe_data = ../safe-data/
 ...
 ```
 
+Alternatively, you can pass the location of the safe-data repository to SAFE directly. See an example in `examples/Example_1_GI_network_doxorubicin.ipynb` and other notebooks in the same folder.
+
 ### Testing  
 
 It may also be useful to run a series of unit tests to verify that SAFE provides the correct outputs for default inputs. Tests are progressively being written and added to the repository. To run all the existing tests (from the `safepy` folder):
