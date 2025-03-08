@@ -14,7 +14,6 @@ import pandas as pd
 import zipfile
 import random
 import shutil
-import ast
 
 from os.path import expanduser
 from scipy.spatial import ConvexHull
@@ -42,7 +41,7 @@ def load_network_from_txt(filename, layout='spring_embedded', node_key_attribute
         1. Header (column names) should not be present in the file with '.txt' extension.
     """
 
-    filename = re.sub('~', expanduser('~'), filename)
+    filename = filename.replace('~', expanduser('~'))
 
     # Get the number of columns first
     if not Path(filename).suffix == '.gz':
@@ -124,7 +123,7 @@ def load_network_from_txt(filename, layout='spring_embedded', node_key_attribute
 
 def load_network_from_gpickle(filename, verbose=True):
 
-    filename = re.sub('~', expanduser('~'), filename)
+    filename = filename.replace('~', expanduser('~'))
     with open(filename, 'rb') as f:
         G = pickle.load(f)
 
@@ -133,7 +132,7 @@ def load_network_from_gpickle(filename, verbose=True):
 
 def load_network_from_mat(filename, verbose=True):
 
-    filename = re.sub('~', expanduser('~'), filename)
+    filename = filename.replace('~', expanduser('~'))
 
     if verbose:
         logging.info('Loading the mat file...')
@@ -154,7 +153,7 @@ def load_network_from_mat(filename, verbose=True):
 
 def load_network_from_cys(filename, view_name=None, verbose=True):
 
-    filename = re.sub('~', expanduser('~'), filename)
+    filename = filename.replace('~', expanduser('~'))
 
     if verbose:
         logging.info('Loading the cys file %s...' % filename)
@@ -270,7 +269,7 @@ def load_network_from_cys(filename, view_name=None, verbose=True):
 
 
 def load_network_from_scatter(filename, node_key_attribute='key', verbose=True):
-    filename = re.sub('~', expanduser('~'), filename)
+    filename = filename.replace('~', expanduser('~'))
 
     if verbose:
         print('Loading the file of node coordinates...')
@@ -341,7 +340,7 @@ def read_attributes(attribute_file='', node_label_order=None, mask_duplicates=Fa
 
     if isinstance(attribute_file, str):
 
-        file_name = re.sub('~', expanduser('~'), attribute_file)
+        file_name = attribute_file.replace('~', expanduser('~'))
         [_, file_extension] = os.path.splitext(file_name)
 
         if file_extension == '.mat':
