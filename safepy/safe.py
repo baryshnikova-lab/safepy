@@ -85,6 +85,7 @@ class SAFE:
         self.enrichment_threshold = 0.05
         self.enrichment_max_log10 = 16
         self.attribute_enrichment_min_size = 10
+        self.random_seed = None
 
         self.neighborhoods = None
 
@@ -110,6 +111,7 @@ class SAFE:
 
         # Validate config
         self.validate_config()
+
 
     def read_config(self, path_to_ini_file, path_to_safe_data=None):
 
@@ -170,6 +172,12 @@ class SAFE:
         self.node_distance_metric = config.get('Analysis parameters', 'nodeDistanceType')
         self.neighborhood_radius_type = config.get('Analysis parameters', 'neighborhoodRadiusType')
         self.neighborhood_radius = float(config.get('Analysis parameters', 'neighborhoodRadius'))
+        
+        self.random_seed = config.get('Analysis parameters', 'randomSeed')
+        try:
+            self.random_seed = int(self.random_seed)
+        except (ValueError, TypeError): 
+            self.random_seed = None
 
         self.attribute_unimodality_metric = config.get('Analysis parameters', 'unimodalityType')
         self.attribute_distance_metric = config.get('Analysis parameters', 'groupDistanceType')
@@ -281,6 +289,7 @@ class SAFE:
             elif file_extension in ['.txt','.tsv']:
                 self.graph = load_network_from_txt(self.path_to_network_file,
                                                    node_key_attribute=self.node_key_attribute,
+                                                   seed=self.random_seed,
                                                    verbose=self.verbose)
             elif file_extension == '.cys':
                 self.graph = load_network_from_cys(self.path_to_network_file, view_name=self.view_name,
@@ -512,7 +521,8 @@ class SAFE:
         else:
 
             arg_tuple = (self.neighborhoods, self.node2attribute,
-                         self.neighborhood_score_type, self.num_permutations)
+                         self.neighborhood_score_type, self.num_permutations,
+                         self.random_seed)
             [counts_neg, counts_pos] = run_permutations(arg_tuple, **kwargs)
 
         idx = np.isnan(N_in_neighborhood_in_group)

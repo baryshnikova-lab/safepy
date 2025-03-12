@@ -27,7 +27,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
-def load_network_from_txt(filename, layout='spring_embedded', node_key_attribute='key', verbose=True):
+def load_network_from_txt(filename, layout='spring_embedded', node_key_attribute='key', seed=None, verbose=True):
     """
     Loads network from tab-delimited text file and applies a network layout.
 
@@ -115,7 +115,7 @@ def load_network_from_txt(filename, layout='spring_embedded', node_key_attribute
     edges = [tuple(x) for x in data[['node_index1', 'node_index2']].values]
     G.add_edges_from(edges)
 
-    G = apply_network_layout(G, layout=layout)
+    G = apply_network_layout(G, layout=layout, seed=seed)
     G = calculate_edge_lengths(G, verbose=verbose)
 
     return G
@@ -285,21 +285,21 @@ def load_network_from_scatter(filename, node_key_attribute='key', verbose=True):
     return G
 
 
-def apply_network_layout(G, layout='kamada_kawai', verbose=True):
+def apply_network_layout(G, layout='kamada_kawai', seed=None, verbose=True):
 
     if layout == 'kamada_kawai':
 
         if verbose:
             logging.info('Applying the Kamada-Kawai network layout... (may take several minutes)')
 
-        pos = nx.kamada_kawai_layout(G)
+        pos = nx.kamada_kawai_layout(G, seed=seed)
 
     elif layout == 'spring_embedded':
 
         if verbose:
             logging.info('Applying the spring-embedded network layout... (may take several minutes)')
 
-        pos = nx.spring_layout(G, k=0.2, iterations=100)
+        pos = nx.spring_layout(G, k=0.2, iterations=100, seed=seed)
 
     for n in G:
         G.nodes[n]['x'] = pos[n][0]

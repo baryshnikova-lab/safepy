@@ -40,10 +40,10 @@ def run_permutations(arg_tuple, **kwargs):
     else:
         tqdm_disable = False
 
-    # Seed the random number generator to a "random" number
-    np.random.seed()
+    neighborhood2node, node2attribute, neighborhood_score_type, num_permutations, random_seed = arg_tuple
 
-    neighborhood2node, node2attribute, neighborhood_score_type, num_permutations = arg_tuple
+    # Seed the random number generator to a specific number (if provided in `safe_default.ini`) or a "random" number
+    np.random.seed(random_seed)
 
     N_in_neighborhood_in_group = compute_neighborhood_score(neighborhood2node, node2attribute, neighborhood_score_type)
 
