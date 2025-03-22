@@ -36,7 +36,7 @@ def make_go_matrix(path_to_obo='', path_to_annotations='', go_branch='p'):
 
     # Get the desired branch of GO (p, f or c)
     namespaces = {'p': 'biological_process', 'c': 'cellular_component', 'f': 'molecular_function'}
-    nodes_branch = (n for n in go_graph if go_graph.node[n]['namespace'] == namespaces[go_branch])
+    nodes_branch = (n for n in go_graph if go_graph.nodes[n]['namespace'] == namespaces[go_branch])
     go_graph_branch = go_graph.subgraph(nodes_branch)
 
     # Store information about each terms predecessors on the tree
@@ -153,7 +153,7 @@ def get_go_graph(path_to_obo):
         keys = ['id', 'name', 'namespace']
         go_term_min = dict((k, go_term[k]) for k in keys if k in go_term)
         df = pd.DataFrame(data=go_term_min, index=[0])
-        go_details = go_details.append(df)
+        go_details = pd.concat([go_details, df], ignore_index=True)
 
         if not go_term['id'] in go_graph.nodes():
             go_graph.add_node(go_term['id'], namespace=go_term['namespace'])
@@ -206,7 +206,7 @@ def get_predecessors_all(graph, nodes):
 def store_predecessors_all(graph, node_id=None, predecessors=[]):
 
     """
-    Recursively transverse down the whole tree (or the tree rooted at a certain term) and store each terms predecessors as a node attribute
+    Iterate through all the nodes and store each terms predecessors as a node attribute
     :param graph: the tree
     :param node_id: the starting node (if None, then the root of the tree is used as a start)
     :param predecessors: the list of predecessors for the root
@@ -219,12 +219,12 @@ def store_predecessors_all(graph, node_id=None, predecessors=[]):
         node_id = nodes[0]
         predecessors = []
 
-    graph.node[node_id]['predecessors'] = predecessors
-    node_successors = graph.successors(node_id)
+    graph.nodes[node_id]['predecessors'] = predecessors
 
-    if node_successors:
-        for node_successor in node_successors:
-            graph = store_predecessors_all(graph, node_id=node_successor, predecessors=[node_id]+predecessors)
+    other_nodes = [n for n, d in dict(graph.in_degree()).items() if d != 0]
+    for n in other_nodes:
+        unique_predecessors = list(set(get_predecessors_all(graph, [n])))
+        graph.nodes[n]['predecessors'] = unique_predecessors
 
     return graph
 
@@ -256,7 +256,7 @@ def make_locus2term(go_graph, go_annotations):
     for go_term in tqdm(go_terms):
 
         # Get all the term's predecessors
-        go_term_and_predecessors = [go_term] + go_graph.node[go_term]['predecessors']
+        go_term_and_predecessors = [go_term] + go_graph.nodes[go_term]['predecessors']
         go_term_and_predecessors = sorted(go_term_and_predecessors)
         idx_terms = np.searchsorted(go_terms, go_term_and_predecessors)
 
@@ -284,7 +284,7 @@ def make_locus2term(go_graph, go_annotations):
     print('%d loci had 0 terms and were assigned to the root.' % np.sum(num_terms_x_locus == 0))
 
     # Transform into a sparse dataframe to save disk space and memory
-    locus2term_df = locus2term_df.to_sparse(fill_value=0)
+    locus2term_df = locus2term_df.astype(pd.SparseDtype(int, fill_value=0))
 
     return locus2term_df
 
