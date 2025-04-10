@@ -61,8 +61,6 @@ class TestEnrichmentPermutations(unittest.TestCase):
 
     def setUp(self):
 
-        logging.disable(logging.CRITICAL)
-
         # Load the default network
         sf = safe.SAFE(verbose=False)
         sf.load_network()

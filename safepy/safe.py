@@ -112,6 +112,39 @@ class SAFE:
         # Validate config
         self.validate_config()
 
+        # Configure logging
+        self.configure_logging()
+
+
+    def configure_logging(self):
+
+        # Setup logging
+        logger = logging.getLogger('safe_logger')
+
+        # Set the lowest log level that this logger will handle.
+        logger.setLevel(logging.DEBUG)
+
+        if not logger.handlers:
+
+            # Create a handler that writes log messages to the console (standard output).
+            console_handler = logging.StreamHandler()
+
+            # Create a formatter.  This defines the layout of each log message.
+            formatter = logging.Formatter('%(levelname)s: %(message)s')
+
+            # Add the formatter to the handler.  The handler now knows how to format
+            # the log messages it receives.
+            console_handler.setFormatter(formatter)
+
+            # Add the handler to the logger.  The logger now sends its output to the
+            # console, formatted as specified.
+            logger.addHandler(console_handler)
+
+        # Prevent propagation to the root logger
+        logger.propagate = False
+
+        self.logger = logger
+
 
     def read_config(self, path_to_ini_file, path_to_safe_data=None):
 
@@ -280,24 +313,26 @@ class SAFE:
             # [_, file_extension] = os.path.splitext(self.path_to_network_file)
             file_extension = Path(self.path_to_network_file).suffixes[0]  # compatible with double extension e.g. txt.gz
             if self.verbose:
-                logging.info('Loading network from %s' % self.path_to_network_file)
+                self.logger.info('Loading network from %s' % self.path_to_network_file)
 
             if file_extension == '.mat':
-                self.graph = load_network_from_mat(self.path_to_network_file, verbose=self.verbose)
+                self.graph = load_network_from_mat(self.path_to_network_file, verbose=self.verbose, logger=self.logger)
             elif file_extension == '.gpickle':
-                self.graph = load_network_from_gpickle(self.path_to_network_file, verbose=self.verbose)
+                self.graph = load_network_from_gpickle(self.path_to_network_file, verbose=self.verbose, logger=self.logger)
             elif file_extension in ['.txt','.tsv']:
                 self.graph = load_network_from_txt(self.path_to_network_file,
                                                    node_key_attribute=self.node_key_attribute,
                                                    seed=self.random_seed,
-                                                   verbose=self.verbose)
+                                                   verbose=self.verbose,
+                                                   logger=self.logger)
             elif file_extension == '.cys':
                 self.graph = load_network_from_cys(self.path_to_network_file, view_name=self.view_name,
-                                                   verbose=self.verbose)
+                                                   verbose=self.verbose, logger=self.logger)
             elif file_extension == '.scatter':
                 self.graph = load_network_from_scatter(self.path_to_network_file,
                                                        node_key_attribute=self.node_key_attribute,
-                                                       verbose=self.verbose)
+                                                       verbose=self.verbose,
+                                                       logger=self.logger)
 
                 # Add a pseudo-network to facilitate potential additional analyses
                 # Edges in the network connect nodes within the pre-specified distance
@@ -359,11 +394,12 @@ class SAFE:
         node_label_order = list(nx.get_node_attributes(self.graph, self.node_key_attribute).values())
 
         if self.verbose and isinstance(self.path_to_attribute_file, str):
-            logging.info('Loading attributes from %s' % self.path_to_attribute_file)
+            self.logger.info('Loading attributes from %s' % self.path_to_attribute_file)
 
         [self.attributes, _, self.node2attribute] = read_attributes(node_label_order=node_label_order,
                                                                     verbose=self.verbose,
                                                                     attribute_file=self.path_to_attribute_file,
+                                                                    logger=self.logger,
                                                                     **kwargs)
 
     def define_neighborhoods(self, **kwargs):
@@ -423,9 +459,9 @@ class SAFE:
         num_neighbors = np.sum(neighborhoods, axis=1)
 
         if self.verbose:
-            logging.info('Node distance metric: %s' % self.node_distance_metric)
-            logging.info('Neighborhood definition: %.2f x %s' % (self.neighborhood_radius, self.neighborhood_radius_type))
-            logging.info('Number of nodes per neighborhood (mean +/- std): %.2f +/- %.2f' % (np.mean(num_neighbors), np.std(num_neighbors)))
+            self.logger.info('Node distance metric: %s' % self.node_distance_metric)
+            self.logger.info('Neighborhood definition: %.2f x %s' % (self.neighborhood_radius, self.neighborhood_radius_type))
+            self.logger.info('Number of nodes per neighborhood (mean +/- std): %.2f +/- %.2f' % (np.mean(num_neighbors), np.std(num_neighbors)))
 
         self.neighborhoods = neighborhoods
 
@@ -447,7 +483,7 @@ class SAFE:
         self.validate_config()
 
         if self.background == 'network':
-            logging.info('Setting all null attribute values to 0. Using the network as background for enrichment.')
+            self.logger.info('Setting all null attribute values to 0. Using the network as background for enrichment.')
             self.node2attribute[np.isnan(self.node2attribute)] = 0
 
         num_vals = self.node2attribute.shape[0]
@@ -455,7 +491,7 @@ class SAFE:
 
         if any(num_nans/num_vals > 0.5):
             # Warn users if more than 50% of values are NaN
-            logging.warning("WARNING: more than 50% of nodes in the network are set to NaN and \
+            self.logger.warning("More than 50% of nodes in the network are set to NaN and \
             will be ignored for calculating enrichment.\n'Consider setting sf.background = ''network''.'")
 
         num_other_values = np.sum(~np.isnan(self.node2attribute) & ~np.isin(self.node2attribute, [0, 1]))
@@ -473,12 +509,15 @@ class SAFE:
 
     def compute_pvalues_by_randomization(self, **kwargs):
 
-        if kwargs:
-            logging.warning('Current settings (possibly overwriting global ones):')
-            for k in kwargs:
-                logging.warning('\t%s=%s' % (k, str(kwargs[k])))
+        if self.verbose and self.logger:
+            if kwargs:
 
-        logging.info('Using randomization to calculate enrichment...')
+                self.logger.info('Current settings (possibly overwriting global ones):')
+
+                for k in kwargs:
+                    self.logger.info('\t%s=%s' % (k, str(kwargs[k])))
+
+            self.logger.info('Using randomization to calculate enrichment...')
 
         # Pause for 1 sec to prevent the progress bar from showing up too early
         time.sleep(1)
@@ -534,7 +573,7 @@ class SAFE:
 
         # Correct for multiple testing
         if self.multiple_testing:
-            logging.info('Running FDR-adjustment of p-values...')
+            self.logger.info('Running FDR-adjustment of p-values...')
             out = np.apply_along_axis(fdrcorrection, 1, self.pvalues_neg)
             self.pvalues_neg = out[:, 1, :]
 
@@ -560,15 +599,15 @@ class SAFE:
                 self.verbose = kwargs['verbose']
 
             if self.verbose:
-                logging.warning('Overwriting global settings:')
+                self.logger.info('Overwriting global settings:')
                 for k in kwargs:
-                    logging.warning('\t%s=%s' % (k, str(kwargs[k])))
+                    self.logger.info('\t%s=%s' % (k, str(kwargs[k])))
 
         # Make sure that the settings are still valid
         self.validate_config()
 
         if self.verbose:
-            logging.info('Using the hypergeometric test to calculate enrichment...')
+            self.logger.info('Using the hypergeometric test to calculate enrichment...')
 
         # Nodes with not-NaN values in >= 1 attribute
         nodes_not_nan = np.any(~np.isnan(self.node2attribute), axis=1)
@@ -599,7 +638,7 @@ class SAFE:
         if self.multiple_testing:
 
             if self.verbose:
-                logging.info('Running FDR-adjustment of p-values...')
+                self.logger.info('Running FDR-adjustment of p-values...')
 
             out = np.apply_along_axis(fdrcorrection, 1, self.pvalues_pos)
             self.pvalues_pos = out[:, 1, :]
@@ -618,9 +657,9 @@ class SAFE:
         # Make sure that the settings are still valid
         self.validate_config()
 
-        logging.info('Criteria for top attributes:')
-        logging.info('- minimum number of enriched neighborhoods: %d' % self.attribute_enrichment_min_size)
-        logging.info('- region-specific distribution of enriched neighborhoods as defined by: %s' % self.attribute_unimodality_metric)
+        self.logger.info('Criteria for top attributes:')
+        self.logger.info('- minimum number of enriched neighborhoods: %d' % self.attribute_enrichment_min_size)
+        self.logger.info('- region-specific distribution of enriched neighborhoods as defined by: %s' % self.attribute_unimodality_metric)
 
         self.attributes['top'] = False
 
@@ -658,7 +697,7 @@ class SAFE:
             self.attributes.loc[self.attributes['num_connected_components'] > 1, 'top'] = False
 
         if self.verbose:
-            logging.info('Number of top attributes: %d' % np.sum(self.attributes['top']))
+            self.logger.info('Number of top attributes: %d' % np.sum(self.attributes['top']))
 
     def define_domains(self, **kwargs):
 
@@ -709,7 +748,7 @@ class SAFE:
             num_attributes_per_domain = self.attributes.loc[self.attributes['domain'] > 0].groupby('domain')['id'].count()
             min_num_attributes = num_attributes_per_domain.min()
             max_num_attributes = num_attributes_per_domain.max()
-            logging.info('Number of domains: %d (containing %d-%d attributes)' %
+            self.logger.info('Number of domains: %d (containing %d-%d attributes)' %
                          (num_domains, min_num_attributes, max_num_attributes))
 
     def trim_domains(self, **kwargs):
@@ -741,7 +780,7 @@ class SAFE:
         self.domains.set_index('id', drop=False)
 
         if self.verbose:
-            logging.info('Removed %d domains because they were the top choice for less than %d neighborhoods.'
+            self.logger.info('Removed %d domains because they were the top choice for less than %d neighborhoods.'
                          % (len(to_remove), self.attribute_enrichment_min_size))
 
     def plot_network(self,
@@ -845,7 +884,7 @@ class SAFE:
 
         if save_fig:
             path_to_fig = save_fig
-            print('Output path: %s' % path_to_fig)
+            self.logger.info('Output path: %s' % path_to_fig)
             plt.savefig(path_to_fig, facecolor=background_color)
 
     def plot_composite_network(self,
@@ -999,7 +1038,7 @@ class SAFE:
 
         if save_fig:
             path_to_fig = save_fig
-            logging.info('Output path: %s' % path_to_fig)
+            self.logger.info('Output path: %s' % path_to_fig)
             plt.savefig(path_to_fig, facecolor=background_color)
 
     def plot_sample_attributes(self,
@@ -1014,6 +1053,7 @@ class SAFE:
                                show_raw_data=False,
                                show_significant_nodes=False,
                                show_colorbar=True,
+                               show_title=True,
                                colors=['82add6','facb66'],
                                foreground_color='#ffffff',
                                background_color='#000000',
@@ -1248,10 +1288,10 @@ class SAFE:
             if idx_attribute+nax == 0:
                 ax.invert_yaxis()
 
-            title = self.attributes.loc[attribute, 'name']
-
-            title = '\n'.join(textwrap.wrap(title, width=30))
-            ax.set_title(title, color=foreground_color)
+            if show_title:
+                title = self.attributes.loc[attribute, 'name']
+                title = '\n'.join(textwrap.wrap(title, width=30))
+                ax.set_title(title, color=foreground_color)
 
             ax.set_frame_on(False)
 
@@ -1261,8 +1301,8 @@ class SAFE:
             path_to_fig = save_fig
             if not os.path.isabs(path_to_fig):
                 path_to_fig = os.path.join(self.output_dir, save_fig)
-            logging.info('Output path: %s' % path_to_fig)
-            plt.savefig(path_to_fig, facecolor=background_color)
+            self.logger.info('Output path: %s' % path_to_fig)
+            plt.savefig(path_to_fig, facecolor=background_color, bbox_inches='tight')
 
     def print_output_files(self, **kwargs):
 
@@ -1274,12 +1314,12 @@ class SAFE:
         if self.domains is not None:
             self.domains.drop(labels=[0], axis=0, inplace=True, errors='ignore')
             self.domains.to_csv(path_domains, sep='\t')
-            logging.info(path_domains)
+            self.logger.info(path_domains)
 
         # Attribute properties
         path_attributes = os.path.join(self.output_dir, 'attribute_properties_annotation.txt')
         self.attributes.to_csv(path_attributes, sep='\t')
-        logging.info(path_attributes)
+        self.logger.info(path_attributes)
 
         # Node properties
         path_nodes = os.path.join(self.output_dir, 'node_properties_annotation.txt')
@@ -1303,7 +1343,7 @@ class SAFE:
             self.nodes.insert(loc=1, column='label', value=labels)
 
         self.nodes.to_csv(path_nodes, sep='\t')
-        logging.info(path_nodes)
+        self.logger.info(path_nodes)
 
 
 def run_safe_batch(attribute_file):
@@ -1348,7 +1388,7 @@ if __name__ == '__main__':
 
     combined_nes = []
 
-    logging.info('Running SAFE on %d chunks of size %d...' % (nr_processes, chunk_size))
+    print('Running SAFE on %d chunks of size %d...' % (nr_processes, chunk_size))
     for res in pool.map_async(run_safe_batch, all_chunks).get():
         combined_nes.append(res)
 
@@ -1356,7 +1396,7 @@ if __name__ == '__main__':
 
     output_file = format('%s_safe_nes.p' % args.path_to_attribute_file)
 
-    logging.info('Saving the results...')
+    print('Saving the results...')
     with open(output_file, 'wb') as handle:
         pickle.dump(all_nes, handle)
 

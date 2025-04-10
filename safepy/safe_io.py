@@ -27,7 +27,8 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
-def load_network_from_txt(filename, layout='spring_embedded', node_key_attribute='key', seed=None, verbose=True):
+def load_network_from_txt(filename, layout='spring_embedded', 
+                          node_key_attribute='key', seed=None, verbose=True, logger=None):
     """
     Loads network from tab-delimited text file and applies a network layout.
 
@@ -116,12 +117,12 @@ def load_network_from_txt(filename, layout='spring_embedded', node_key_attribute
     G.add_edges_from(edges)
 
     G = apply_network_layout(G, layout=layout, seed=seed)
-    G = calculate_edge_lengths(G, verbose=verbose)
+    G = calculate_edge_lengths(G, verbose=verbose, logger=logger)
 
     return G
 
 
-def load_network_from_gpickle(filename, verbose=True):
+def load_network_from_gpickle(filename, verbose=True, logger=None):
 
     filename = filename.replace('~', expanduser('~'))
     with open(filename, 'rb') as f:
@@ -130,12 +131,12 @@ def load_network_from_gpickle(filename, verbose=True):
     return G
 
 
-def load_network_from_mat(filename, verbose=True):
+def load_network_from_mat(filename, verbose=True, logger=None):
 
     filename = filename.replace('~', expanduser('~'))
 
-    if verbose:
-        logging.info('Loading the mat file...')
+    if verbose and logger:
+        logger.info('Loading the mat file...')
 
     mat = load_mat(filename)
     G = nx.Graph(mat['layout']['edges'])
@@ -151,12 +152,12 @@ def load_network_from_mat(filename, verbose=True):
     return G
 
 
-def load_network_from_cys(filename, view_name=None, verbose=True):
+def load_network_from_cys(filename, view_name=None, verbose=True, logger=None):
 
     filename = filename.replace('~', expanduser('~'))
 
-    if verbose:
-        logging.info('Loading the cys file %s...' % filename)
+    if verbose and logger:
+        logger.info('Loading the cys file %s...' % filename)
 
     # Unzip CYS file
     zip_ref = zipfile.ZipFile(filename, 'r')
@@ -174,8 +175,8 @@ def load_network_from_cys(filename, view_name=None, verbose=True):
     else:
         view_file = view_files[0]
 
-    if verbose:
-        logging.info('Loading the view: %s' % view_file)
+    if verbose and logger:
+        logger.info('Loading the view: %s' % view_file)
 
     mydoc = minidom.parse(view_file)
     nodes = mydoc.getElementsByTagName('node')
@@ -195,8 +196,8 @@ def load_network_from_cys(filename, view_name=None, verbose=True):
     # Get edges (from the network)
     networkfile = [f for f in files if '/networks/' in f][0]
 
-    if verbose:
-        logging.info('Loading the first network: %s' % networkfile)
+    if verbose and logger:
+        logger.info('Loading the first network: %s' % networkfile)
 
     mydoc = minidom.parse(networkfile)
     edges = mydoc.getElementsByTagName('edge')
@@ -268,11 +269,11 @@ def load_network_from_cys(filename, view_name=None, verbose=True):
     return G
 
 
-def load_network_from_scatter(filename, node_key_attribute='key', verbose=True):
+def load_network_from_scatter(filename, node_key_attribute='key', verbose=True, logger=None):
     filename = filename.replace('~', expanduser('~'))
 
-    if verbose:
-        print('Loading the file of node coordinates...')
+    if verbose and logger:
+        logger.info('Loading the file of node coordinates...')
 
     scatter = pd.read_csv(filename, sep='\t')
     scatter.columns = ['key', 'x', 'y', 'label']
@@ -285,19 +286,19 @@ def load_network_from_scatter(filename, node_key_attribute='key', verbose=True):
     return G
 
 
-def apply_network_layout(G, layout='kamada_kawai', seed=None, verbose=True):
+def apply_network_layout(G, layout='kamada_kawai', seed=None, verbose=True, logger=None):
 
     if layout == 'kamada_kawai':
 
-        if verbose:
-            logging.info('Applying the Kamada-Kawai network layout... (may take several minutes)')
+        if verbose and logger:
+            logger.info('Applying the Kamada-Kawai network layout... (may take several minutes)')
 
         pos = nx.kamada_kawai_layout(G, seed=seed)
 
     elif layout == 'spring_embedded':
 
-        if verbose:
-            logging.info('Applying the spring-embedded network layout... (may take several minutes)')
+        if verbose and logger:
+            logger.info('Applying the spring-embedded network layout... (may take several minutes)')
 
         pos = nx.spring_layout(G, k=0.2, iterations=100, seed=seed)
 
@@ -308,12 +309,12 @@ def apply_network_layout(G, layout='kamada_kawai', seed=None, verbose=True):
     return G
 
 
-def calculate_edge_lengths(G, verbose=True):
+def calculate_edge_lengths(G, verbose=True, logger=None):
 
     # Calculate the lengths of the edges
 
-    if verbose:
-        logging.info('Calculating edge lengths...')
+    if verbose and logger:
+        logger.info('Calculating edge lengths...')
 
     x = np.reshape(np.array(G.nodes.data('x'))[:,1], (-1,1))
     y = np.reshape(np.array(G.nodes.data('y'))[:,1], (-1,1))
@@ -333,7 +334,8 @@ def calculate_edge_lengths(G, verbose=True):
     return G
 
 
-def read_attributes(attribute_file='', node_label_order=None, mask_duplicates=False, fill_value=np.nan, verbose=True):
+def read_attributes(attribute_file='', node_label_order=None, mask_duplicates=False, fill_value=np.nan, 
+                    verbose=True, logger=None):
 
     node2attribute = pd.DataFrame()
     attributes = pd.DataFrame()
@@ -383,7 +385,10 @@ def read_attributes(attribute_file='', node_label_order=None, mask_duplicates=Fa
 
     # Averaging duplicate rows (with notification)
     if not node2attribute.index.is_unique:
-        logging.info('\nThe attribute file contains multiple values for the same labels. Their values will be averaged.')
+
+        if verbose and logger:
+            logger.info('The attribute file contains multiple values for the same labels. Their values will be averaged.')
+
         node2attribute = node2attribute.groupby(node2attribute.index).mean()
 
     if not node_label_order:
@@ -402,15 +407,18 @@ def read_attributes(attribute_file='', node_label_order=None, mask_duplicates=Fa
         mask_dups = node2attribute.iloc[idx].index.duplicated(keep='first')
 
         num_dups = mask_dups.sum()
-        logging.info('\nThe network contains %d nodes with duplicate labels. '
-                     'Only one random node per label will be considered. '
-                     'The attribute values of all other nodes will be set to NaN.' % num_dups)
+
+        if verbose and logger:
+            logger.info('The network contains %d nodes with duplicate labels. '
+                        'Only one random node per label will be considered. '
+                        'The attribute values of all other nodes will be set to NaN.' % num_dups)
+            
         node2attribute.iloc[idx[mask_dups], :] = np.nan
 
     node2attribute = node2attribute.values
 
-    if verbose:
-        logging.info('\nAttribute data provided: %d labels x %d attributes' % (len(node_label_in_file), attributes.shape[0]))
+    if verbose and logger:
+        logger.info('Attribute data provided: %d labels x %d attributes' % (len(node_label_in_file), attributes.shape[0]))
 
         # Notification about labels **not** mapped onto the network
         n = np.min([len(node_label_not_mapped), 3])
@@ -421,11 +429,11 @@ def read_attributes(attribute_file='', node_label_order=None, mask_duplicates=Fa
             logging.info(msg1 + msg2)
 
         n_nlm = len(node_label_in_file) - len(node_label_not_mapped)
-        logging.info('\nAttribute data mapped onto the network: %d labels x %d attributes' % (n_nlm, attributes.shape[0]))
-        logging.info('Values: %d NaNs' % np.sum(np.isnan(node2attribute)))
-        logging.info('Values: %d zeros' % np.sum(node2attribute[~np.isnan(node2attribute)] == 0))
-        logging.info('Values: %d positives' % np.sum(node2attribute[~np.isnan(node2attribute)] > 0))
-        logging.info('Values: %d negatives' % np.sum(node2attribute[~np.isnan(node2attribute)] < 0))
+        logger.info('Attribute data mapped onto the network: %d labels x %d attributes' % (n_nlm, attributes.shape[0]))
+        logger.info('Values: %d NaNs' % np.sum(np.isnan(node2attribute)))
+        logger.info('Values: %d zeros' % np.sum(node2attribute[~np.isnan(node2attribute)] == 0))
+        logger.info('Values: %d positives' % np.sum(node2attribute[~np.isnan(node2attribute)] > 0))
+        logger.info('Values: %d negatives' % np.sum(node2attribute[~np.isnan(node2attribute)] < 0))
 
     return attributes, node_label_order, node2attribute
 
@@ -646,7 +654,7 @@ def mark_nodes(x, y,
     return ax
 
 
-def get_node_coordinates(graph, labels=[]):
+def get_node_coordinates(graph, labels=[], logger=None):
 
     x = dict(graph.nodes.data('x'))
     y = dict(graph.nodes.data('y'))
@@ -683,7 +691,7 @@ def get_node_coordinates(graph, labels=[]):
         labels_missing = [x for x in labels if x not in node_labels_dict.keys()]
         if labels_missing:
             labels_missing_str = ', '.join(labels_missing)
-            logging.warning('These labels are missing from the network (case sensitive): %s' % labels_missing_str)
+            logger.warning('These labels are missing from the network (case sensitive): %s' % labels_missing_str)
 
         node_xy_list = [x_idx, y_idx]
 
