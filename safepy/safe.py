@@ -103,8 +103,14 @@ class SAFE:
         self.domains = None
         self.node2domain = None
 
-        # Output
-        self.output_dir = ''
+        # Output directory for saving results: safepy/output/
+        current_file_path = os.path.abspath(__file__)
+        safepy_root_dir = os.path.dirname(os.path.dirname(current_file_path))
+        self.output_dir = os.path.join(safepy_root_dir, 'output/')
+        
+        # Create output directory if it does not exist
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
 
         # Read both default and user-defined settings
         self.read_config(path_to_ini_file, path_to_safe_data=self.path_to_safe_data)
@@ -216,9 +222,6 @@ class SAFE:
         self.attribute_distance_metric = config.get('Analysis parameters', 'groupDistanceType')
         self.attribute_distance_threshold = float(config.get('Analysis parameters', 'groupDistanceThreshold'))
 
-        self.output_dir = os.path.dirname(path_to_ini_file)
-        if not self.output_dir:
-            self.output_dir = loc
 
     def validate_config(self):
 
@@ -269,7 +272,7 @@ class SAFE:
 
     def save(self, output_file='', **kwargs):
         if not output_file:
-            output_file = os.path.join(os.getcwd(), 'safe_output.p')
+            output_file = os.path.join(self.output_dir, 'safe_output.p')
 
         with open(output_file, 'wb') as handle:
             pickle.dump(self, handle)
@@ -362,7 +365,7 @@ class SAFE:
         if 'output_file' in kwargs:
             output_file = kwargs['output_file']
         else:
-            output_file = os.path.join(os.getcwd(), self.path_to_network_file + '.gpickle')
+            output_file = os.path.join(self.output_dir, self.path_to_network_file + '.gpickle')
 
         nx.write_gpickle(self.graph, output_file)
 
@@ -1394,7 +1397,9 @@ if __name__ == '__main__':
 
     all_nes = np.concatenate(combined_nes, axis=1)
 
-    output_file = format('%s_safe_nes.p' % args.path_to_attribute_file)
+    safepy_root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    safepy_output_dir = os.path.join(safepy_root_dir, '/output/')
+    output_file = os.path.join(safepy_output_dir, format('%s_safe_nes.p' % args.path_to_attribute_file))
 
     print('Saving the results...')
     with open(output_file, 'wb') as handle:
